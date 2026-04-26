@@ -30,6 +30,7 @@ _parse_statement:
     mov x29, sp
     stp x19, x20, [sp, #-16]!
     stp x21, x22, [sp, #-16]!
+    stp x23, x24, [sp, #-16]!
 
     bl _parse_identifier
     cbz x0, Lstmt_need_keyword
@@ -85,6 +86,20 @@ _parse_statement:
     bl _match_cstr_span
     cbnz x0, Lstmt_if
 
+    mov x0, x19
+    mov x1, x20
+    adrp x2, kw_while@PAGE
+    add x2, x2, kw_while@PAGEOFF
+    bl _match_cstr_span
+    cbnz x0, Lstmt_while
+
+    mov x0, x19
+    mov x1, x20
+    adrp x2, kw_str@PAGE
+    add x2, x2, kw_str@PAGEOFF
+    bl _match_cstr_span
+    cbnz x0, Lstmt_str
+
     b Lstmt_assign
 
     adrp x0, msg_unknown_stmt@PAGE
@@ -119,6 +134,7 @@ Lstmt_let:
     mov x1, x20
     mov x2, x21
     mov x3, #0
+    mov x4, #0
     bl _define_variable
     cbnz x0, Lstmt_fail
 
@@ -147,6 +163,7 @@ Lstmt_int:
     mov x1, x20
     mov x2, x21
     mov x3, #0
+    mov x4, #0
     bl _define_variable
     cbnz x0, Lstmt_fail
 
@@ -175,6 +192,39 @@ Lstmt_bool:
     mov x1, x20
     mov x2, x21
     mov x3, #0
+    mov x4, #1
+    mov x5, #0
+    bl _define_variable
+    cbnz x0, Lstmt_fail
+
+    mov x0, #0
+    b Lstmt_return
+
+Lstmt_str:
+    bl _skip_whitespace
+    bl _parse_identifier
+    cbz x0, Lstmt_need_name
+    mov x19, x0
+    mov x20, x1
+
+    bl _skip_whitespace
+    mov w0, #'='
+    bl _expect_char
+    cbz x0, Lstmt_fail
+
+    bl _parse_string_literal
+    cbz x0, Lstmt_fail
+    mov x21, x1 // ptr
+    mov x22, x2 // len
+
+    bl _consume_optional_semicolon
+
+    mov x0, x19
+    mov x1, x20
+    mov x2, x21
+    mov x3, #0
+    mov x4, #2 // type str
+    mov x5, x22
     bl _define_variable
     cbnz x0, Lstmt_fail
 
@@ -208,6 +258,7 @@ Lstmt_const:
     b Lstmt_fail
 
 Lstmt_const_int:
+    mov x22, #0
     bl _skip_whitespace
     bl _parse_identifier
     cbz x0, Lstmt_need_name
@@ -225,6 +276,7 @@ Lstmt_const_int:
     b Lstmt_const_store
 
 Lstmt_const_bool:
+    mov x22, #1
     bl _skip_whitespace
     bl _parse_identifier
     cbz x0, Lstmt_need_name
@@ -247,6 +299,8 @@ Lstmt_const_store:
     mov x1, x20
     mov x2, x21
     mov x3, #1
+    mov x4, x22
+    mov x5, #0
     bl _define_variable
     cbnz x0, Lstmt_fail
 
@@ -262,6 +316,8 @@ Lstmt_print:
     bl _parse_expr_value
     cbz x0, Lstmt_fail
     mov x19, x1
+    mov x22, x2
+    mov x23, x3
     bl _skip_whitespace
     mov w0, #')'
     bl _expect_char
@@ -272,11 +328,15 @@ Lstmt_print_plain:
     bl _parse_expr_value
     cbz x0, Lstmt_fail
     mov x19, x1
+    mov x22, x2
+    mov x23, x3
 
 Lstmt_print_record:
     bl _consume_optional_semicolon
 
-    mov x0, x19
+    mov x0, x19 // value
+    mov x1, x22 // type
+    mov x2, x23 // length
     bl _record_print_value
     cbnz x0, Lstmt_fail
     mov x0, #0
@@ -327,73 +387,14 @@ Lstmt_fn_unclosed:
     b Lstmt_fail
 
 Lstmt_if:
-    bl _skip_whitespace
-    mov w0, #'('
-    bl _expect_char
-    cbz x0, Lstmt_fail
-
-    bl _parse_condition_value
-    cbz x0, Lstmt_fail
-    mov x19, x1
-
-    bl _skip_whitespace
-    mov w0, #')'
-    bl _expect_char
-    cbz x0, Lstmt_fail
-
-    bl _skip_whitespace
-    mov w0, #'{'
-    bl _expect_char
-    cbz x0, Lstmt_fail
-
-    cbz x19, Lstmt_if_skip_then
-
-Lstmt_if_then_loop:
-    bl _skip_whitespace
-    bl _peek_char
-    cmp w0, #'}'
-    b.eq Lstmt_if_then_done
-    cbz w0, Lstmt_fn_unclosed
-    bl _parse_statement
+    bl _parse_if_statement_after_keyword
     cbnz x0, Lstmt_fail
-    b Lstmt_if_then_loop
+    mov x0, #0
+    b Lstmt_return
 
-Lstmt_if_then_done:
-    bl _advance_char
-    bl _consume_optional_else
-    cbz x0, Lstmt_if_done
-    bl _skip_whitespace
-    mov w0, #'{'
-    bl _expect_char
-    cbz x0, Lstmt_fail
-    bl _skip_block_contents
+Lstmt_while:
+    bl _parse_while_statement_after_keyword
     cbnz x0, Lstmt_fail
-    b Lstmt_if_done
-
-Lstmt_if_skip_then:
-    bl _skip_block_contents
-    cbnz x0, Lstmt_fail
-    bl _consume_optional_else
-    cbz x0, Lstmt_if_done
-    bl _skip_whitespace
-    mov w0, #'{'
-    bl _expect_char
-    cbz x0, Lstmt_fail
-
-Lstmt_if_else_loop:
-    bl _skip_whitespace
-    bl _peek_char
-    cmp w0, #'}'
-    b.eq Lstmt_if_else_done
-    cbz w0, Lstmt_fn_unclosed
-    bl _parse_statement
-    cbnz x0, Lstmt_fail
-    b Lstmt_if_else_loop
-
-Lstmt_if_else_done:
-    bl _advance_char
-
-Lstmt_if_done:
     mov x0, #0
     b Lstmt_return
 
@@ -534,7 +535,292 @@ Lstmt_fail:
     mov x0, #1
 
 Lstmt_return:
+    ldp x23, x24, [sp], #16
     ldp x21, x22, [sp], #16
+    ldp x19, x20, [sp], #16
+    ldp x29, x30, [sp], #16
+    ret
+
+_parse_if_statement_after_keyword:
+    stp x29, x30, [sp, #-16]!
+    mov x29, sp
+    stp x19, x20, [sp, #-16]!
+    stp x21, x22, [sp, #-16]!
+
+    bl _skip_whitespace
+    mov w0, #'('
+    bl _expect_char
+    cbz x0, Lif_parse_fail
+
+    bl _parse_condition_value
+    cbz x0, Lif_parse_fail
+    mov x19, x1
+
+    bl _skip_whitespace
+    mov w0, #')'
+    bl _expect_char
+    cbz x0, Lif_parse_fail
+
+    bl _skip_whitespace
+    mov w0, #'{'
+    bl _expect_char
+    cbz x0, Lif_parse_fail
+
+    cbz x19, Lif_skip_then
+
+Lif_then_loop:
+    bl _skip_whitespace
+    bl _peek_char
+    cmp w0, #'}'
+    b.eq Lif_then_done
+    cbz w0, Lif_unclosed
+    bl _parse_statement
+    cbnz x0, Lif_parse_fail
+    b Lif_then_loop
+
+Lif_then_done:
+    bl _advance_char
+    bl _consume_optional_else
+    cbz x0, Lif_done
+
+    adrp x0, kw_if@PAGE
+    add x0, x0, kw_if@PAGEOFF
+    bl _consume_keyword
+    cbz x0, Lif_skip_else_block
+    bl _skip_if_statement_after_keyword
+    cbnz x0, Lif_parse_fail
+    b Lif_done
+
+Lif_skip_else_block:
+    bl _skip_whitespace
+    mov w0, #'{'
+    bl _expect_char
+    cbz x0, Lif_parse_fail
+    bl _skip_block_contents
+    cbnz x0, Lif_parse_fail
+    b Lif_done
+
+Lif_skip_then:
+    bl _skip_block_contents
+    cbnz x0, Lif_parse_fail
+    bl _consume_optional_else
+    cbz x0, Lif_done
+
+    adrp x0, kw_if@PAGE
+    add x0, x0, kw_if@PAGEOFF
+    bl _consume_keyword
+    cbz x0, Lif_execute_else_block
+    bl _parse_if_statement_after_keyword
+    cbnz x0, Lif_parse_fail
+    b Lif_done
+
+Lif_execute_else_block:
+    bl _skip_whitespace
+    mov w0, #'{'
+    bl _expect_char
+    cbz x0, Lif_parse_fail
+
+Lif_else_loop:
+    bl _skip_whitespace
+    bl _peek_char
+    cmp w0, #'}'
+    b.eq Lif_else_done
+    cbz w0, Lif_unclosed
+    bl _parse_statement
+    cbnz x0, Lif_parse_fail
+    b Lif_else_loop
+
+Lif_else_done:
+    bl _advance_char
+    b Lif_done
+
+Lif_unclosed:
+    adrp x0, msg_expected_char@PAGE
+    add x0, x0, msg_expected_char@PAGEOFF
+    bl _report_error_prefix
+    adrp x0, close_brace_char@PAGE
+    add x0, x0, close_brace_char@PAGEOFF
+    mov x1, #1
+    mov x2, #2
+    bl _write_buffer_fd
+    bl _write_newline_stderr
+
+Lif_parse_fail:
+    mov x0, #1
+    b Lif_return
+
+Lif_done:
+    mov x0, #0
+
+Lif_return:
+    ldp x21, x22, [sp], #16
+    ldp x19, x20, [sp], #16
+    ldp x29, x30, [sp], #16
+    ret
+
+_skip_if_statement_after_keyword:
+    stp x29, x30, [sp, #-16]!
+    mov x29, sp
+
+    bl _skip_whitespace
+    mov w0, #'('
+    bl _expect_char
+    cbz x0, Lskip_if_fail
+    bl _skip_paren_group
+    cbnz x0, Lskip_if_fail
+
+    bl _skip_whitespace
+    mov w0, #'{'
+    bl _expect_char
+    cbz x0, Lskip_if_fail
+    bl _skip_block_contents
+    cbnz x0, Lskip_if_fail
+
+    bl _consume_optional_else
+    cbz x0, Lskip_if_done
+    adrp x0, kw_if@PAGE
+    add x0, x0, kw_if@PAGEOFF
+    bl _consume_keyword
+    cbz x0, Lskip_if_else_block
+    bl _skip_if_statement_after_keyword
+    b Lskip_if_return
+
+Lskip_if_else_block:
+    bl _skip_whitespace
+    mov w0, #'{'
+    bl _expect_char
+    cbz x0, Lskip_if_fail
+    bl _skip_block_contents
+    cbnz x0, Lskip_if_fail
+
+Lskip_if_done:
+    mov x0, #0
+    b Lskip_if_return
+
+Lskip_if_fail:
+    mov x0, #1
+
+Lskip_if_return:
+    ldp x29, x30, [sp], #16
+    ret
+
+_parse_while_statement_after_keyword:
+    stp x29, x30, [sp, #-16]!
+    mov x29, sp
+    stp x19, x20, [sp, #-16]!
+    stp x21, x22, [sp, #-16]!
+    stp x23, x24, [sp, #-16]!
+
+    adrp x9, cursor_pos@PAGE
+    add x9, x9, cursor_pos@PAGEOFF
+    ldr x19, [x9]
+    adrp x9, current_line@PAGE
+    add x9, x9, current_line@PAGEOFF
+    ldr x20, [x9]
+
+Lwhile_loop:
+    adrp x9, cursor_pos@PAGE
+    add x9, x9, cursor_pos@PAGEOFF
+    str x19, [x9]
+    adrp x9, current_line@PAGE
+    add x9, x9, current_line@PAGEOFF
+    str x20, [x9]
+
+    bl _skip_whitespace
+    mov w0, #'('
+    bl _expect_char
+    cbz x0, Lwhile_fail
+
+    bl _parse_condition_value
+    cbz x0, Lwhile_fail
+    mov x21, x1
+
+    bl _skip_whitespace
+    mov w0, #')'
+    bl _expect_char
+    cbz x0, Lwhile_fail
+
+    bl _skip_whitespace
+    mov w0, #'{'
+    bl _expect_char
+    cbz x0, Lwhile_fail
+
+    cbz x21, Lwhile_skip_block_and_done
+
+Lwhile_body_loop:
+    bl _skip_whitespace
+    bl _peek_char
+    cmp w0, #'}'
+    b.eq Lwhile_body_done
+    cbz w0, Lwhile_unclosed
+    bl _parse_statement
+    cbnz x0, Lwhile_fail
+    b Lwhile_body_loop
+
+Lwhile_body_done:
+    bl _advance_char
+    b Lwhile_loop
+
+Lwhile_skip_block_and_done:
+    bl _skip_block_contents
+    cbnz x0, Lwhile_fail
+    mov x0, #0
+    b Lwhile_return
+
+Lwhile_unclosed:
+    adrp x0, msg_expected_char@PAGE
+    add x0, x0, msg_expected_char@PAGEOFF
+    bl _report_error_prefix
+    adrp x0, close_brace_char@PAGE
+    add x0, x0, close_brace_char@PAGEOFF
+    mov x1, #1
+    mov x2, #2
+    bl _write_buffer_fd
+    bl _write_newline_stderr
+
+Lwhile_fail:
+    mov x0, #1
+
+Lwhile_return:
+    ldp x23, x24, [sp], #16
+    ldp x21, x22, [sp], #16
+    ldp x19, x20, [sp], #16
+    ldp x29, x30, [sp], #16
+    ret
+
+_skip_paren_group:
+    stp x29, x30, [sp, #-16]!
+    mov x29, sp
+    stp x19, x20, [sp, #-16]!
+
+    mov x19, #1
+
+Lskip_paren_loop:
+    bl _peek_char
+    cbz w0, Lskip_paren_fail
+    cmp w0, #'('
+    b.eq Lskip_paren_open
+    cmp w0, #')'
+    b.eq Lskip_paren_close
+    bl _advance_char
+    b Lskip_paren_loop
+
+Lskip_paren_open:
+    bl _advance_char
+    add x19, x19, #1
+    b Lskip_paren_loop
+
+Lskip_paren_close:
+    bl _advance_char
+    sub x19, x19, #1
+    cbnz x19, Lskip_paren_loop
+    mov x0, #0
+    b Lskip_paren_return
+
+Lskip_paren_fail:
+    mov x0, #1
+
+Lskip_paren_return:
     ldp x19, x20, [sp], #16
     ldp x29, x30, [sp], #16
     ret
@@ -543,10 +829,15 @@ _parse_expr_value:
     stp x29, x30, [sp, #-16]!
     mov x29, sp
     stp x19, x20, [sp, #-16]!
+    stp x21, x22, [sp, #-16]!
+    stp x23, x24, [sp, #-16]!
 
     bl _parse_term_value
     cbz x0, Lexpr_fail
     mov x19, x1
+    mov x20, x2
+    mov x21, x3
+    mov x24, x4
 
 Lexpr_loop:
     bl _skip_whitespace
@@ -558,6 +849,9 @@ Lexpr_loop:
 
     mov x0, #1
     mov x1, x19
+    mov x2, x20
+    mov x3, x21
+    mov x4, x24
     b Lexpr_return
 
 Lexpr_add:
@@ -565,6 +859,9 @@ Lexpr_add:
     bl _parse_term_value
     cbz x0, Lexpr_fail
     add x19, x19, x1
+    mov x20, #0
+    mov x21, #0
+    mov x24, #-1
     b Lexpr_loop
 
 Lexpr_subtract:
@@ -572,12 +869,17 @@ Lexpr_subtract:
     bl _parse_term_value
     cbz x0, Lexpr_fail
     sub x19, x19, x1
+    mov x20, #0
+    mov x21, #0
+    mov x24, #-1
     b Lexpr_loop
 
 Lexpr_fail:
     mov x0, #0
 
 Lexpr_return:
+    ldp x23, x24, [sp], #16
+    ldp x21, x22, [sp], #16
     ldp x19, x20, [sp], #16
     ldp x29, x30, [sp], #16
     ret
@@ -617,6 +919,8 @@ Lcond_logic_loop:
 
     mov x0, #1
     mov x1, x19
+    mov x2, #0 // int
+    mov x3, #0 // length 0
     b Lcond_return
 
 Lcond_logic_and:
@@ -749,10 +1053,15 @@ _parse_term_value:
     stp x29, x30, [sp, #-16]!
     mov x29, sp
     stp x19, x20, [sp, #-16]!
+    stp x21, x22, [sp, #-16]!
+    stp x23, x24, [sp, #-16]!
 
     bl _parse_primary_value
     cbz x0, Lterm_fail
     mov x19, x1
+    mov x20, x2
+    mov x21, x3
+    mov x24, x4
 
 Lterm_loop:
     bl _skip_whitespace
@@ -770,6 +1079,9 @@ Lterm_multiply:
     bl _parse_primary_value
     cbz x0, Lterm_fail
     mul x19, x19, x1
+    mov x20, #0
+    mov x21, #0
+    mov x24, #-1
     b Lterm_loop
 
 Lterm_divide:
@@ -778,6 +1090,9 @@ Lterm_divide:
     cbz x0, Lterm_fail
     cbz x1, Lterm_divide_zero
     udiv x19, x19, x1
+    mov x20, #0
+    mov x21, #0
+    mov x24, #-1
     b Lterm_loop
 
 Lterm_modulo:
@@ -787,6 +1102,9 @@ Lterm_modulo:
     cbz x1, Lterm_divide_zero
     udiv x9, x19, x1
     msub x19, x9, x1, x19
+    mov x20, #0
+    mov x21, #0
+    mov x24, #-1
     b Lterm_loop
 
 Lterm_divide_zero:
@@ -799,12 +1117,17 @@ Lterm_divide_zero:
 Lterm_done:
     mov x0, #1
     mov x1, x19
+    mov x2, x20
+    mov x3, x21
+    mov x4, x24
     b Lterm_return
 
 Lterm_fail:
     mov x0, #0
 
 Lterm_return:
+    ldp x23, x24, [sp], #16
+    ldp x21, x22, [sp], #16
     ldp x19, x20, [sp], #16
     ldp x29, x30, [sp], #16
     ret
@@ -813,6 +1136,8 @@ _parse_primary_value:
     stp x29, x30, [sp, #-16]!
     mov x29, sp
     stp x19, x20, [sp, #-16]!
+    stp x21, x22, [sp, #-16]!
+    stp x23, x24, [sp, #-16]!
 
     bl _skip_whitespace
     bl _peek_char
@@ -820,6 +1145,9 @@ _parse_primary_value:
 
     cmp w0, #'('
     b.eq Lprimary_group
+
+    cmp w0, #'"'
+    b.eq Lprimary_string
 
     cmp w0, #'0'
     b.lt Lprimary_identifier
@@ -832,6 +1160,9 @@ Lprimary_group:
     bl _parse_expr_value
     cbz x0, Lprimary_fail
     mov x19, x1
+    mov x20, x2
+    mov x21, x3
+    mov x24, x4
 
     bl _skip_whitespace
     mov w0, #')'
@@ -840,6 +1171,9 @@ Lprimary_group:
 
     mov x0, #1
     mov x1, x19
+    mov x2, x20
+    mov x3, x21
+    mov x4, x24
     b Lprimary_return
 
 Lprimary_identifier:
@@ -866,24 +1200,42 @@ Lprimary_identifier:
     mov x1, x20
     bl _lookup_variable
     cbz x0, Lprimary_unknown_var
-    mov x1, x1
+    // x1=value, x2=type, x3=length already set by _lookup_variable
     mov x0, #1
     b Lprimary_return
 
 Lprimary_true:
     mov x0, #1
     mov x1, #1
+    mov x2, #1 // bool
+    mov x3, #0
+    mov x4, #-1
     b Lprimary_return
 
 Lprimary_false:
     mov x0, #1
     mov x1, #0
+    mov x2, #1 // bool
+    mov x3, #0
+    mov x4, #-1
     b Lprimary_return
 
 Lprimary_number:
     bl _parse_number
     cbz x0, Lprimary_fail
     mov x0, #1
+    mov x2, #0 // integer
+    mov x3, #0
+    mov x4, #-1
+    b Lprimary_return
+
+Lprimary_string:
+    bl _parse_string_literal
+    cbz x0, Lprimary_fail
+    mov x3, x2 // length
+    mov x2, #2 // type str
+    mov x0, #1
+    mov x4, #-1
     b Lprimary_return
 
 Lprimary_missing:
@@ -906,6 +1258,8 @@ Lprimary_fail:
     mov x0, #0
 
 Lprimary_return:
+    ldp x23, x24, [sp], #16
+    ldp x21, x22, [sp], #16
     ldp x19, x20, [sp], #16
     ldp x29, x30, [sp], #16
     ret
@@ -1197,5 +1551,58 @@ Lskip_block_fail:
 
 Lskip_block_return:
     ldp x19, x20, [sp], #16
+    ldp x29, x30, [sp], #16
+    ret
+
+_parse_string_literal:
+    stp x29, x30, [sp, #-16]!
+    mov x29, sp
+    stp x19, x20, [sp, #-16]!
+
+    bl _skip_whitespace
+    bl _peek_char
+    cmp w0, #'"'
+    b.ne Lstr_lit_fail
+
+    bl _advance_char
+    bl _get_cursor_ptr
+    mov x19, x0
+    mov x20, #0
+
+Lstr_lit_loop:
+    bl _peek_char
+    cbz w0, Lstr_lit_fail
+    cmp w0, #'"'
+    b.eq Lstr_lit_done
+    bl _advance_char
+    add x20, x20, #1
+    b Lstr_lit_loop
+
+Lstr_lit_done:
+    bl _advance_char
+    mov x0, #1
+    mov x1, x19
+    mov x2, x20
+    ldp x19, x20, [sp], #16
+    ldp x29, x30, [sp], #16
+    ret
+
+Lstr_lit_fail:
+    mov x0, #0
+    ldp x19, x20, [sp], #16
+    ldp x29, x30, [sp], #16
+    ret
+
+_parse_string_value:
+    stp x29, x30, [sp, #-16]!
+    mov x29, sp
+    bl _parse_string_literal
+    cbz x0, Lstr_val_fail
+    mov x0, #1 // x1=ptr, x2=len already set
+    ldp x29, x30, [sp], #16
+    ret
+
+Lstr_val_fail:
+    mov x0, #0
     ldp x29, x30, [sp], #16
     ret

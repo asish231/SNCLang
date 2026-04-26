@@ -33,6 +33,8 @@ fn main() {
     print(total - 2)
     print((a + b) * 3)
     bool ready = true
+    str name = "Asish"
+    print(name)
     if (total >= 20) {
         print(1)
     } else {
@@ -54,7 +56,11 @@ Supported today:
 - parentheses for grouped expressions
 - comparisons with `==`, `!=`, `>`, `<`, `>=`, and `<=`
 - compile-time `if (...) { ... } else { ... }`
+- `else if (...) { ... }`
+- `while (...) { ... }`
 - `bool`, `true`, and `false`
+- `str` string variables
+- string literals in `print(...)`
 - `const int` and `const bool`
 - reassignment with `=`
 - assignment shortcuts with `+=`, `-=`, `*=`, and `/=`
@@ -64,11 +70,14 @@ Supported today:
 
 Still planned from `SNLANG_SPEC.md`:
 
-- `str`, `dec`, `byte`
+- string concatenation
+- `dec`, `byte`
 - runtime variable storage
 - runtime code generation for `if` / `else`
 - richer logical precedence
-- loops
+- `for`
+- `for in`
+- `stop` / `skip`
 - functions with parameters and returns
 - lists/maps
 - blueprints/contracts/OOP

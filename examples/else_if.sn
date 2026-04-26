@@ -1,0 +1,11 @@
+fn main() {
+    int age = 65
+
+    if (age < 18) {
+        print(1)
+    } else if (age >= 60) {
+        print(2)
+    } else {
+        print(3)
+    }
+}

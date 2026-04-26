@@ -30,6 +30,15 @@ test: snc
 	./snc examples/state_logic.sn > /tmp/snc_state_logic.s
 	clang /tmp/snc_state_logic.s -o /tmp/snc_state_logic
 	/tmp/snc_state_logic
+	./snc examples/strings.sn > /tmp/snc_strings.s
+	clang /tmp/snc_strings.s -o /tmp/snc_strings
+	/tmp/snc_strings
+	./snc examples/else_if.sn > /tmp/snc_else_if.s
+	clang /tmp/snc_else_if.s -o /tmp/snc_else_if
+	/tmp/snc_else_if
+	./snc examples/while_loop.sn > /tmp/snc_while_loop.s
+	clang /tmp/snc_while_loop.s -o /tmp/snc_while_loop
+	/tmp/snc_while_loop
 
 clean:
 	rm -f snc src/*.o

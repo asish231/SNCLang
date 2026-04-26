@@ -25,6 +25,7 @@
 .global kw_fn
 .global kw_if
 .global kw_else
+.global kw_while
 .global kw_true
 .global kw_false
 .global kw_and
@@ -35,11 +36,18 @@
 .global asm_print_fmt_adrp
 .global asm_print_val_adrp
 .global asm_print_val_ldr
+.global asm_print_str_val_adrp
+.global asm_print_str_val_add
 .global asm_print_call_suffix
+.global asm_print_call_stack
 .global asm_data_intro
 .global asm_data_value_prefix
 .global asm_data_value_mid
+.global asm_data_value_mid_str
 .global asm_data_value_suffix
+.global asm_data_value_suffix_str
+.global asm_print_fmt_int_adrp
+.global asm_print_fmt_str_adrp
 .global newline_char
 .global zero_qword
 .global single_char
@@ -55,9 +63,11 @@
 .global var_name_ptrs
 .global var_name_lens
 .global var_values
+.global var_lengths
 .global var_const_flags
 .global var_types
 .global print_values
+.global print_lengths
 .global print_types
 
 msg_usage:         .asciz "usage: ./snc <source.sn>\n"
@@ -86,6 +96,7 @@ kw_const:          .asciz "const"
 kw_fn:             .asciz "fn"
 kw_if:             .asciz "if"
 kw_else:           .asciz "else"
+kw_while:          .asciz "while"
 kw_true:           .asciz "true"
 kw_false:          .asciz "false"
 kw_and:            .asciz "and"
@@ -94,22 +105,34 @@ kw_not:            .asciz "not"
 kw_str:            .asciz "str"
 asm_header:
     .asciz ".global _main\n.align 4\n.extern _printf\n\n.text\n_main:\n    stp x29, x30, [sp, #-16]!\n    mov x29, sp\n"
-asm_print_fmt_adrp:
-    .asciz "    adrp x0, print_fmt@PAGE\n    add x0, x0, print_fmt@PAGEOFF\n"
+asm_print_fmt_int_adrp:
+    .asciz "    adrp x0, print_fmt_int@PAGE\n    add x0, x0, print_fmt_int@PAGEOFF\n"
+asm_print_fmt_str_adrp:
+    .asciz "    adrp x0, print_fmt_str@PAGE\n    add x0, x0, print_fmt_str@PAGEOFF\n"
 asm_print_val_adrp:
     .asciz "    adrp x9, print_val_"
 asm_print_val_ldr:
     .asciz "@PAGE\n    ldr x1, [x9, print_val_"
+asm_print_str_val_adrp:
+    .asciz "    adrp x1, print_val_"
+asm_print_str_val_add:
+    .asciz "@PAGE\n    add x1, x1, print_val_"
 asm_print_call_suffix:
     .asciz "@PAGEOFF]\n    sub sp, sp, #16\n    str x1, [sp]\n    bl _printf\n    add sp, sp, #16\n"
+asm_print_call_stack:
+    .asciz "@PAGEOFF\n    sub sp, sp, #16\n    str x1, [sp]\n    bl _printf\n    add sp, sp, #16\n"
 asm_data_intro:
     .asciz "    mov w0, #0\n    ldp x29, x30, [sp], #16\n    ret\n\n.data\nprint_fmt_int:\n    .asciz \"%lld\\n\"\nprint_fmt_str:\n    .asciz \"%s\\n\"\n.align 3\n"
 asm_data_value_prefix:
     .asciz "print_val_"
 asm_data_value_mid:
     .asciz ":\n    .quad "
+asm_data_value_mid_str:
+    .asciz ":\n    .asciz \""
 asm_data_value_suffix:
     .asciz "\n"
+asm_data_value_suffix_str:
+    .asciz "\"\n"
 newline_char:      .byte 10
 zero_qword:        .quad 0
 single_char:       .byte 0
@@ -128,7 +151,9 @@ print_count:    .space 8
 var_name_ptrs:  .space 512
 var_name_lens:  .space 512
 var_values:     .space 512
+var_lengths:    .space 512
 var_const_flags: .space 512
 var_types:       .space 512
 print_values:   .space 2048
+print_lengths:  .space 2048
 print_types:    .space 2048

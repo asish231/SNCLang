@@ -1,0 +1,5 @@
+fn main() {
+    str name = "Asish"
+    print(name)
+    print("Hello, SNlang")
+}
