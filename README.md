@@ -4,6 +4,24 @@
 
 It reads `.sn` source code and emits ARM64 assembly that can be assembled with `clang`.
 
+## Architecture
+
+The compiler is split by responsibility:
+
+- `src/main.s` - entry point, argument handling, source file loading
+- `src/lexer.s` - cursor movement, whitespace, and comment skipping
+- `src/parser.s` - statements, expressions, conditions, and blocks
+- `src/vars.s` - variable storage, constants, assignment, and print records
+- `src/codegen.s` - generated ARM64 assembly output
+- `src/utils.s` - string matching, error reporting, and write helpers
+- `src/data.s` - shared messages, keywords, buffers, and compiler state
+
+The old single-file version is archived at `archive/snc.monolith.s`.
+
+Code generation currently emits runtime `_printf` calls for integer output. Expressions
+and variables are still evaluated by the compiler before emission; moving variables
+into the generated program's runtime memory is the next major compiler milestone.
+
 ## Syntax
 
 ```sn
@@ -46,7 +64,8 @@ Supported today:
 
 Still planned from `SNLANG_SPEC.md`:
 
-- `str`, `bool`, `dec`, `byte`
+- `str`, `dec`, `byte`
+- runtime variable storage
 - runtime code generation for `if` / `else`
 - richer logical precedence
 - loops

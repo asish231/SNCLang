@@ -54,22 +54,26 @@ _emit_print_call:
     stp x19, x20, [sp, #-16]!
 
     mov x19, x0
-    adrp x0, asm_call_prefix_a@PAGE
-    add x0, x0, asm_call_prefix_a@PAGEOFF
+    adrp x0, asm_print_fmt_adrp@PAGE
+    add x0, x0, asm_print_fmt_adrp@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+    adrp x0, asm_print_val_adrp@PAGE
+    add x0, x0, asm_print_val_adrp@PAGEOFF
     mov x1, #1
     bl _write_cstr_fd
     mov x0, x19
     mov x1, #1
     bl _write_u64_fd
-    adrp x0, asm_call_prefix_b@PAGE
-    add x0, x0, asm_call_prefix_b@PAGEOFF
+    adrp x0, asm_print_val_ldr@PAGE
+    add x0, x0, asm_print_val_ldr@PAGEOFF
     mov x1, #1
     bl _write_cstr_fd
     mov x0, x19
     mov x1, #1
     bl _write_u64_fd
-    adrp x0, asm_call_suffix@PAGE
-    add x0, x0, asm_call_suffix@PAGEOFF
+    adrp x0, asm_print_call_suffix@PAGE
+    add x0, x0, asm_print_call_suffix@PAGEOFF
     mov x1, #1
     bl _write_cstr_fd
 
@@ -88,22 +92,22 @@ _emit_print_data:
     add x20, x20, print_values@PAGEOFF
     ldr x21, [x20, x19, lsl #3]
 
-    adrp x0, asm_data_label_prefix@PAGE
-    add x0, x0, asm_data_label_prefix@PAGEOFF
+    adrp x0, asm_data_value_prefix@PAGE
+    add x0, x0, asm_data_value_prefix@PAGEOFF
     mov x1, #1
     bl _write_cstr_fd
     mov x0, x19
     mov x1, #1
     bl _write_u64_fd
-    adrp x0, asm_data_label_mid@PAGE
-    add x0, x0, asm_data_label_mid@PAGEOFF
+    adrp x0, asm_data_value_mid@PAGE
+    add x0, x0, asm_data_value_mid@PAGEOFF
     mov x1, #1
     bl _write_cstr_fd
     mov x0, x21
     mov x1, #1
     bl _write_u64_fd
-    adrp x0, asm_data_label_suffix@PAGE
-    add x0, x0, asm_data_label_suffix@PAGEOFF
+    adrp x0, asm_data_value_suffix@PAGE
+    add x0, x0, asm_data_value_suffix@PAGEOFF
     mov x1, #1
     bl _write_cstr_fd
 

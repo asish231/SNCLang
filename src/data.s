@@ -30,14 +30,16 @@
 .global kw_and
 .global kw_or
 .global kw_not
+.global kw_str
 .global asm_header
-.global asm_call_prefix_a
-.global asm_call_prefix_b
-.global asm_call_suffix
+.global asm_print_fmt_adrp
+.global asm_print_val_adrp
+.global asm_print_val_ldr
+.global asm_print_call_suffix
 .global asm_data_intro
-.global asm_data_label_prefix
-.global asm_data_label_mid
-.global asm_data_label_suffix
+.global asm_data_value_prefix
+.global asm_data_value_mid
+.global asm_data_value_suffix
 .global newline_char
 .global zero_qword
 .global single_char
@@ -54,7 +56,9 @@
 .global var_name_lens
 .global var_values
 .global var_const_flags
+.global var_types
 .global print_values
+.global print_types
 
 msg_usage:         .asciz "usage: ./snc <source.sn>\n"
 msg_open_error:    .asciz "error: could not open "
@@ -87,22 +91,25 @@ kw_false:          .asciz "false"
 kw_and:            .asciz "and"
 kw_or:             .asciz "or"
 kw_not:            .asciz "not"
+kw_str:            .asciz "str"
 asm_header:
     .asciz ".global _main\n.align 4\n.extern _printf\n\n.text\n_main:\n    stp x29, x30, [sp, #-16]!\n    mov x29, sp\n"
-asm_call_prefix_a:
-    .asciz "    adrp x0, print_"
-asm_call_prefix_b:
-    .asciz "@PAGE\n    add x0, x0, print_"
-asm_call_suffix:
-    .asciz "@PAGEOFF\n    bl _printf\n"
+asm_print_fmt_adrp:
+    .asciz "    adrp x0, print_fmt@PAGE\n    add x0, x0, print_fmt@PAGEOFF\n"
+asm_print_val_adrp:
+    .asciz "    adrp x9, print_val_"
+asm_print_val_ldr:
+    .asciz "@PAGE\n    ldr x1, [x9, print_val_"
+asm_print_call_suffix:
+    .asciz "@PAGEOFF]\n    sub sp, sp, #16\n    str x1, [sp]\n    bl _printf\n    add sp, sp, #16\n"
 asm_data_intro:
-    .asciz "    mov w0, #0\n    ldp x29, x30, [sp], #16\n    ret\n\n.data\n"
-asm_data_label_prefix:
-    .asciz "print_"
-asm_data_label_mid:
-    .asciz ":\n    .asciz \""
-asm_data_label_suffix:
-    .asciz "\\n\"\n"
+    .asciz "    mov w0, #0\n    ldp x29, x30, [sp], #16\n    ret\n\n.data\nprint_fmt_int:\n    .asciz \"%lld\\n\"\nprint_fmt_str:\n    .asciz \"%s\\n\"\n.align 3\n"
+asm_data_value_prefix:
+    .asciz "print_val_"
+asm_data_value_mid:
+    .asciz ":\n    .quad "
+asm_data_value_suffix:
+    .asciz "\n"
 newline_char:      .byte 10
 zero_qword:        .quad 0
 single_char:       .byte 0
@@ -122,4 +129,6 @@ var_name_ptrs:  .space 512
 var_name_lens:  .space 512
 var_values:     .space 512
 var_const_flags: .space 512
+var_types:       .space 512
 print_values:   .space 2048
+print_types:    .space 2048
