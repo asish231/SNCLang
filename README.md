@@ -18,9 +18,11 @@ The compiler is split by responsibility:
 
 The old single-file version is archived at `archive/snc.monolith.s`.
 
-Code generation currently emits runtime `_printf` calls for integer output. Expressions
-and variables are still evaluated by the compiler before emission; moving variables
-into the generated program's runtime memory is the next major compiler milestone.
+Code generation currently emits runtime `_printf` calls for integer output. Most
+expressions are still evaluated by the compiler before emission. Integer and
+boolean variables now have runtime slots in emitted programs for declarations,
+assignments, direct `print(var)` loads, and simple runtime arithmetic of the form
+`print(x + 2)` and `x = x + 3`.
 
 ## Syntax
 
@@ -61,6 +63,10 @@ Supported today:
 - `bool`, `true`, and `false`
 - `str` string variables
 - string literals in `print(...)`
+- runtime slots for `int` / `bool` declarations and assignments
+- runtime `print(var)` loads for `int` / `bool`
+- runtime arithmetic for `print(var op number)` where `op` is `+ - * / %`
+- runtime arithmetic for `x = x op number` where `op` is `+ - * / %`
 - `const int` and `const bool`
 - reassignment with `=`
 - assignment shortcuts with `+=`, `-=`, `*=`, and `/=`
@@ -72,7 +78,7 @@ Still planned from `SNLANG_SPEC.md`:
 
 - string concatenation
 - `dec`, `byte`
-- runtime variable storage
+- full runtime expression evaluation
 - runtime code generation for `if` / `else`
 - richer logical precedence
 - `for`

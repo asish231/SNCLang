@@ -53,6 +53,9 @@ Lmain_have_input:
     adrp x2, print_count@PAGE
     add x2, x2, print_count@PAGEOFF
     str x1, [x2]
+    adrp x2, op_count@PAGE
+    add x2, x2, op_count@PAGEOFF
+    str x1, [x2]
 
     bl _parse_program
     cbnz x0, Lmain_fail
@@ -166,4 +169,3 @@ _set_source:
     add x2, x2, source_len@PAGEOFF
     str x1, [x2]
     ret
-

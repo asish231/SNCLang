@@ -17,6 +17,7 @@
 .global msg_expected_type
 .global msg_too_many_vars
 .global msg_too_many_prints
+.global msg_too_many_ops
 .global kw_let
 .global kw_print
 .global kw_int
@@ -40,6 +41,7 @@
 .global asm_print_str_val_add
 .global asm_print_call_suffix
 .global asm_print_call_stack
+.global asm_print_stack_only
 .global asm_data_intro
 .global asm_data_value_prefix
 .global asm_data_value_mid
@@ -48,6 +50,31 @@
 .global asm_data_value_suffix_str
 .global asm_print_fmt_int_adrp
 .global asm_print_fmt_str_adrp
+.global asm_store_val_adrp
+.global asm_store_val_ldr
+.global asm_store_var_adrp
+.global asm_store_var_str
+.global asm_store_var_suffix
+.global asm_print_var_adrp
+.global asm_print_var_ldr
+.global asm_math_var_x11_adrp
+.global asm_math_var_x11_ldr
+.global asm_math_var_x1_adrp
+.global asm_math_var_x1_ldr
+.global asm_math_store_x11_adrp
+.global asm_math_store_x11_str
+.global asm_math_add_x11_x10
+.global asm_math_sub_x11_x10
+.global asm_math_mul_x11_x10
+.global asm_math_div_x11_x10
+.global asm_math_mod_x11_x10
+.global asm_math_add_x1_x10
+.global asm_math_sub_x1_x10
+.global asm_math_mul_x1_x10
+.global asm_math_div_x1_x10
+.global asm_math_mod_x1_x10
+.global asm_var_slot_prefix
+.global asm_store_data_prefix
 .global newline_char
 .global zero_qword
 .global single_char
@@ -60,6 +87,7 @@
 .global current_line
 .global var_count
 .global print_count
+.global op_count
 .global var_name_ptrs
 .global var_name_lens
 .global var_values
@@ -69,6 +97,9 @@
 .global print_values
 .global print_lengths
 .global print_types
+.global op_kinds
+.global op_arg0
+.global op_arg1
 
 msg_usage:         .asciz "usage: ./snc <source.sn>\n"
 msg_open_error:    .asciz "error: could not open "
@@ -88,6 +119,7 @@ msg_const_assign:  .asciz "error: cannot assign to const on "
 msg_expected_type: .asciz "error: expected type on "
 msg_too_many_vars: .asciz "error: too many variables\n"
 msg_too_many_prints: .asciz "error: too many print statements\n"
+msg_too_many_ops:  .asciz "error: too many operations\n"
 kw_let:            .asciz "let"
 kw_print:          .asciz "print"
 kw_int:            .asciz "int"
@@ -121,6 +153,54 @@ asm_print_call_suffix:
     .asciz "@PAGEOFF]\n    sub sp, sp, #16\n    str x1, [sp]\n    bl _printf\n    add sp, sp, #16\n"
 asm_print_call_stack:
     .asciz "@PAGEOFF\n    sub sp, sp, #16\n    str x1, [sp]\n    bl _printf\n    add sp, sp, #16\n"
+asm_print_stack_only:
+    .asciz "    sub sp, sp, #16\n    str x1, [sp]\n    bl _printf\n    add sp, sp, #16\n"
+asm_store_val_adrp:
+    .asciz "    adrp x9, store_val_"
+asm_store_val_ldr:
+    .asciz "@PAGE\n    ldr x10, [x9, store_val_"
+asm_store_var_adrp:
+    .asciz "@PAGEOFF]\n    adrp x11, var_slot_"
+asm_store_var_str:
+    .asciz "@PAGE\n    str x10, [x11, var_slot_"
+asm_store_var_suffix:
+    .asciz "@PAGEOFF]\n"
+asm_print_var_adrp:
+    .asciz "    adrp x9, var_slot_"
+asm_print_var_ldr:
+    .asciz "@PAGE\n    ldr x1, [x9, var_slot_"
+asm_math_var_x11_adrp:
+    .asciz "    adrp x11, var_slot_"
+asm_math_var_x11_ldr:
+    .asciz "@PAGE\n    ldr x11, [x11, var_slot_"
+asm_math_var_x1_adrp:
+    .asciz "    adrp x11, var_slot_"
+asm_math_var_x1_ldr:
+    .asciz "@PAGE\n    ldr x1, [x11, var_slot_"
+asm_math_store_x11_adrp:
+    .asciz "    adrp x12, var_slot_"
+asm_math_store_x11_str:
+    .asciz "@PAGE\n    str x11, [x12, var_slot_"
+asm_math_add_x11_x10:
+    .asciz "    add x11, x11, x10\n"
+asm_math_sub_x11_x10:
+    .asciz "    sub x11, x11, x10\n"
+asm_math_mul_x11_x10:
+    .asciz "    mul x11, x11, x10\n"
+asm_math_div_x11_x10:
+    .asciz "    udiv x11, x11, x10\n"
+asm_math_mod_x11_x10:
+    .asciz "    udiv x13, x11, x10\n    msub x11, x13, x10, x11\n"
+asm_math_add_x1_x10:
+    .asciz "    add x1, x1, x10\n"
+asm_math_sub_x1_x10:
+    .asciz "    sub x1, x1, x10\n"
+asm_math_mul_x1_x10:
+    .asciz "    mul x1, x1, x10\n"
+asm_math_div_x1_x10:
+    .asciz "    udiv x1, x1, x10\n"
+asm_math_mod_x1_x10:
+    .asciz "    udiv x13, x1, x10\n    msub x1, x13, x10, x1\n"
 asm_data_intro:
     .asciz "    mov w0, #0\n    ldp x29, x30, [sp], #16\n    ret\n\n.data\nprint_fmt_int:\n    .asciz \"%lld\\n\"\nprint_fmt_str:\n    .asciz \"%s\\n\"\n.align 3\n"
 asm_data_value_prefix:
@@ -133,6 +213,10 @@ asm_data_value_suffix:
     .asciz "\n"
 asm_data_value_suffix_str:
     .asciz "\"\n"
+asm_var_slot_prefix:
+    .asciz "var_slot_"
+asm_store_data_prefix:
+    .asciz "store_val_"
 newline_char:      .byte 10
 zero_qword:        .quad 0
 single_char:       .byte 0
@@ -148,6 +232,7 @@ cursor_pos:     .space 8
 current_line:   .space 8
 var_count:      .space 8
 print_count:    .space 8
+op_count:       .space 8
 var_name_ptrs:  .space 512
 var_name_lens:  .space 512
 var_values:     .space 512
@@ -157,3 +242,6 @@ var_types:       .space 512
 print_values:   .space 2048
 print_lengths:  .space 2048
 print_types:    .space 2048
+op_kinds:       .space 4096
+op_arg0:        .space 4096
+op_arg1:        .space 4096

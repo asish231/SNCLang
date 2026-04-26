@@ -39,6 +39,12 @@ test: snc
 	./snc examples/while_loop.sn > /tmp/snc_while_loop.s
 	clang /tmp/snc_while_loop.s -o /tmp/snc_while_loop
 	/tmp/snc_while_loop
+	./snc examples/runtime_vars.sn > /tmp/snc_runtime_vars.s
+	clang /tmp/snc_runtime_vars.s -o /tmp/snc_runtime_vars
+	/tmp/snc_runtime_vars
+	./snc examples/runtime_exprs.sn > /tmp/snc_runtime_exprs.s
+	clang /tmp/snc_runtime_exprs.s -o /tmp/snc_runtime_exprs
+	/tmp/snc_runtime_exprs
 
 clean:
 	rm -f snc src/*.o

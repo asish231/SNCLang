@@ -6,6 +6,7 @@
  .global _record_print_value
  .global _record_store_variable
  .global _record_print_variable
+ .global _record_operation
 
 _define_variable:
     stp x29, x30, [sp, #-16]!
