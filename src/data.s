@@ -15,15 +15,22 @@
 .global msg_divide_zero
 .global msg_const_assign
 .global msg_expected_type
+.global msg_expected_list
 .global msg_too_many_vars
 .global msg_too_many_prints
 .global msg_too_many_ops
+.global msg_too_many_fns
+.global msg_too_many_params
+.global msg_unknown_fn
+.global msg_wrong_arg_count
+.global msg_expected_arrow
 .global kw_let
 .global kw_print
 .global kw_int
 .global kw_bool
 .global kw_const
 .global kw_fn
+.global kw_main
 .global kw_if
 .global kw_else
 .global kw_while
@@ -37,10 +44,12 @@
 .global kw_match
 .global kw_default
 .global kw_use
+.global kw_list
 .global kw_for
 .global kw_stop
 .global kw_skip
 .global kw_in
+.global kw_return
 .global asm_header
 .global asm_print_fmt_adrp
 .global asm_print_val_adrp
@@ -123,6 +132,9 @@
 .global var_lengths
 .global var_const_flags
 .global var_types
+.global list_pool_count
+.global list_pool_values
+.global list_pool_lengths
 .global print_values
 .global print_lengths
 .global print_types
@@ -130,6 +142,20 @@
 .global op_arg0
 .global op_arg1
 .global op_arg2
+.global fn_count
+.global fn_name_ptrs
+.global fn_name_lens
+.global fn_body_cursors
+.global fn_body_lines
+.global fn_param_counts
+.global fn_param_types
+.global fn_param_name_ptrs
+.global fn_param_name_lens
+.global fn_return_types
+.global fn_return_value
+.global fn_return_length
+.global fn_return_flag
+.global saved_var_count
 
 msg_usage:         .asciz "usage: ./snc <source.sn>\n"
 msg_open_error:    .asciz "error: could not open "
@@ -147,15 +173,22 @@ msg_duplicate_var: .asciz "error: duplicate variable on "
 msg_divide_zero:   .asciz "error: division by zero on "
 msg_const_assign:  .asciz "error: cannot assign to const on "
 msg_expected_type: .asciz "error: expected type on "
+msg_expected_list: .asciz "error: expected list on "
 msg_too_many_vars: .asciz "error: too many variables\n"
 msg_too_many_prints: .asciz "error: too many print statements\n"
 msg_too_many_ops:  .asciz "error: too many operations\n"
+msg_too_many_fns:  .asciz "error: too many functions\n"
+msg_too_many_params: .asciz "error: too many parameters on "
+msg_unknown_fn:    .asciz "error: unknown function on "
+msg_wrong_arg_count: .asciz "error: wrong number of arguments on "
+msg_expected_arrow: .asciz "error: expected -> on "
 kw_let:            .asciz "let"
 kw_print:          .asciz "print"
 kw_int:            .asciz "int"
 kw_bool:           .asciz "bool"
 kw_const:          .asciz "const"
 kw_fn:             .asciz "fn"
+kw_main:           .asciz "main"
 kw_if:             .asciz "if"
 kw_else:           .asciz "else"
 kw_while:          .asciz "while"
@@ -169,10 +202,12 @@ kw_byte:           .asciz "byte"
 kw_match:          .asciz "match"
 kw_default:        .asciz "default"
 kw_use:            .asciz "use"
+kw_list:           .asciz "list"
 kw_for:            .asciz "for"
 kw_stop:           .asciz "stop"
 kw_skip:           .asciz "skip"
 kw_in:             .asciz "in"
+kw_return:         .asciz "return"
 asm_header:
     .asciz ".global _main\n.align 4\n.extern _printf\n\n.text\n_main:\n    stp x29, x30, [sp, #-16]!\n    mov x29, sp\n"
 asm_print_fmt_int_adrp:
@@ -318,6 +353,9 @@ var_values:     .space 512
 var_lengths:    .space 512
 var_const_flags: .space 512
 var_types:       .space 512
+list_pool_count: .space 8
+list_pool_values: .space 4096
+list_pool_lengths: .space 4096
 print_values:   .space 2048
 print_lengths:  .space 2048
 print_types:    .space 2048
@@ -325,3 +363,17 @@ op_kinds:       .space 4096
 op_arg0:        .space 4096
 op_arg1:        .space 4096
 op_arg2:        .space 4096
+fn_count:       .space 8
+fn_name_ptrs:   .space 256        // 32 functions * 8 bytes
+fn_name_lens:   .space 256
+fn_body_cursors: .space 256
+fn_body_lines:  .space 256
+fn_param_counts: .space 256
+fn_return_types: .space 256
+fn_param_types: .space 1024       // 32 fns * 4 params * 8 bytes
+fn_param_name_ptrs: .space 1024
+fn_param_name_lens: .space 1024
+fn_return_value: .space 8
+fn_return_length: .space 8
+fn_return_flag:  .space 8
+saved_var_count: .space 8

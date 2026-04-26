@@ -41,3 +41,26 @@ while (n < 205) {
     print(n)
     n += 1
 }
+
+// For-in over a declared int list: prints 7,8,10
+list<int> nums = [7, 8, 9, 10]
+for (num in nums) {
+    if (num == 9) {
+        skip
+    }
+    print(num)
+}
+
+// For-in over an inline int list: prints 1,2
+for (value in [1, 2, 3]) {
+    if (value == 3) {
+        stop
+    }
+    print(value)
+}
+
+// For-in over a declared string list: prints Apple,Banana
+list<str> fruits = ["Apple", "Banana"]
+for (fruit in fruits) {
+    print(fruit)
+}

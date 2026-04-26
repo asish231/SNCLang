@@ -6,6 +6,9 @@
 .extern _write
 .extern _close
 .extern _exit
+.extern _parse_statement
+.extern _lookup_function
+.extern _cstring_length
 
 _main:
     stp x29, x30, [sp, #-16]!
@@ -53,6 +56,9 @@ Lmain_have_input:
     adrp x2, print_count@PAGE
     add x2, x2, print_count@PAGEOFF
     str x1, [x2]
+    adrp x2, fn_count@PAGE
+    add x2, x2, fn_count@PAGEOFF
+    str x1, [x2]
     adrp x2, op_count@PAGE
     add x2, x2, op_count@PAGEOFF
     str x1, [x2]
@@ -60,6 +66,74 @@ Lmain_have_input:
     bl _parse_program
     cbnz x0, Lmain_fail
 
+    // Auto-call main() if it was defined
+    adrp x9, fn_count@PAGE
+    add x9, x9, fn_count@PAGEOFF
+    ldr x9, [x9]
+    cbz x9, Lmain_no_main_fn
+
+    // Look up "main"
+    adrp x0, kw_main@PAGE
+    add x0, x0, kw_main@PAGEOFF
+    bl _cstring_length
+    mov x1, x0
+    adrp x0, kw_main@PAGE
+    add x0, x0, kw_main@PAGEOFF
+    bl _lookup_function
+    cbz x0, Lmain_no_main_fn
+    // x1 = fn index
+    mov x19, x1
+
+    // Save current cursor
+    adrp x9, cursor_pos@PAGE
+    add x9, x9, cursor_pos@PAGEOFF
+    ldr x20, [x9]
+
+    // Clear return flag
+    adrp x9, fn_return_flag@PAGE
+    add x9, x9, fn_return_flag@PAGEOFF
+    str xzr, [x9]
+
+    // Jump cursor to function body
+    adrp x9, fn_body_cursors@PAGE
+    add x9, x9, fn_body_cursors@PAGEOFF
+    ldr x10, [x9, x19, lsl #3]
+    adrp x9, cursor_pos@PAGE
+    add x9, x9, cursor_pos@PAGEOFF
+    str x10, [x9]
+    adrp x9, fn_body_lines@PAGE
+    add x9, x9, fn_body_lines@PAGEOFF
+    ldr x10, [x9, x19, lsl #3]
+    adrp x9, current_line@PAGE
+    add x9, x9, current_line@PAGEOFF
+    str x10, [x9]
+
+    // Execute function body
+Lmain_fn_body_loop:
+    adrp x9, fn_return_flag@PAGE
+    add x9, x9, fn_return_flag@PAGEOFF
+    ldr x10, [x9]
+    cbnz x10, Lmain_fn_body_done
+
+    bl _skip_whitespace
+    bl _peek_char
+    cmp w0, #'}'
+    b.eq Lmain_fn_body_done
+    cbz w0, Lmain_fail
+
+    bl _parse_statement
+    cbz x0, Lmain_fn_body_loop
+    cmp x0, #4 // return
+    b.eq Lmain_fn_body_done
+    b Lmain_fail
+
+Lmain_fn_body_done:
+    // Clear return flag
+    adrp x9, fn_return_flag@PAGE
+    add x9, x9, fn_return_flag@PAGEOFF
+    str xzr, [x9]
+
+Lmain_no_main_fn:
     bl _emit_program
 
     mov w0, #0

@@ -57,6 +57,9 @@ test: snc
 	./snc examples/for_loop.sn > /tmp/snc_for_loop.s
 	clang /tmp/snc_for_loop.s -o /tmp/snc_for_loop
 	/tmp/snc_for_loop
+	./snc examples/functions.sn > /tmp/snc_functions.s
+	clang /tmp/snc_functions.s -o /tmp/snc_functions
+	/tmp/snc_functions
 
 clean:
 	rm -f snc src/*.o

@@ -1,0 +1,60 @@
+// Test: functions with parameters, return values, and calls
+
+// Forward call before definition
+print(later_add(20, 22))
+
+// Simple function with no params
+fn greet() {
+    print(42)
+}
+
+// Function with int param
+fn double(int x) -> int {
+    return x * 2
+}
+
+// Function with two params
+fn add(int a, int b) -> int {
+    return a + b
+}
+
+// Function with conditional return
+fn abs_diff(int x, int y) -> int {
+    if (x > y) {
+        return x - y
+    }
+    return y - x
+}
+
+// Nested function calls in expressions
+fn square(int n) -> int {
+    return n * n
+}
+
+fn say(str s) {
+    print(s)
+}
+
+fn echo(str s) -> str {
+    return s
+}
+
+// Call functions
+greet()
+print(double(5))
+print(add(3, 7))
+print(abs_diff(10, 3))
+print(abs_diff(3, 10))
+print(square(6))
+say("hello")
+print(echo("hi"))
+str echoed = echo("SNlang")
+print(echoed)
+
+// Function call inside expression
+int result = add(10, double(3))
+print(result)
+
+fn later_add(int a, int b) -> int {
+    return a + b
+}

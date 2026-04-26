@@ -1,10 +1,22 @@
  .text
  .align 4
  .global _parse_program
+ .global _parse_statement
 
 _parse_program:
     stp x29, x30, [sp, #-16]!
     mov x29, sp
+
+    bl _preparse_functions
+    cbnz x0, Lprogram_fail
+
+    adrp x9, cursor_pos@PAGE
+    add x9, x9, cursor_pos@PAGEOFF
+    str xzr, [x9]
+    adrp x9, current_line@PAGE
+    add x9, x9, current_line@PAGEOFF
+    mov x10, #1
+    str x10, [x9]
 
 Lprogram_loop:
     bl _skip_whitespace
@@ -22,6 +34,77 @@ Lprogram_ok:
 
 Lprogram_fail:
     mov x0, #1
+    ldp x29, x30, [sp], #16
+    ret
+
+_preparse_functions:
+    stp x29, x30, [sp, #-16]!
+    mov x29, sp
+    stp x19, x20, [sp, #-16]!
+    stp x21, x22, [sp, #-16]!
+
+    adrp x9, cursor_pos@PAGE
+    add x9, x9, cursor_pos@PAGEOFF
+    ldr x19, [x9]
+    adrp x9, current_line@PAGE
+    add x9, x9, current_line@PAGEOFF
+    ldr x20, [x9]
+
+    adrp x9, cursor_pos@PAGE
+    add x9, x9, cursor_pos@PAGEOFF
+    str xzr, [x9]
+    adrp x9, current_line@PAGE
+    add x9, x9, current_line@PAGEOFF
+    mov x10, #1
+    str x10, [x9]
+
+Lpreparse_loop:
+    bl _skip_whitespace
+    bl _is_eof
+    cbnz x0, Lpreparse_done
+
+    bl _parse_identifier
+    cbz x0, Lpreparse_non_ident
+    mov x21, x0
+    mov x22, x1
+    mov x0, x21
+    mov x1, x22
+    adrp x2, kw_fn@PAGE
+    add x2, x2, kw_fn@PAGEOFF
+    bl _match_cstr_span
+    cbz x0, Lpreparse_loop
+    bl _parse_fn_definition
+    cbnz x0, Lpreparse_fail
+    b Lpreparse_loop
+
+Lpreparse_non_ident:
+    bl _peek_char
+    cmp w0, #'"'
+    b.ne Lpreparse_advance
+    bl _parse_string_literal
+    cbz x0, Lpreparse_fail
+    b Lpreparse_loop
+
+Lpreparse_advance:
+    bl _advance_char
+    b Lpreparse_loop
+
+Lpreparse_done:
+    mov x0, #0
+    b Lpreparse_return
+
+Lpreparse_fail:
+    mov x0, #1
+
+Lpreparse_return:
+    adrp x9, cursor_pos@PAGE
+    add x9, x9, cursor_pos@PAGEOFF
+    str x19, [x9]
+    adrp x9, current_line@PAGE
+    add x9, x9, current_line@PAGEOFF
+    str x20, [x9]
+    ldp x21, x22, [sp], #16
+    ldp x19, x20, [sp], #16
     ldp x29, x30, [sp], #16
     ret
 
@@ -130,6 +213,13 @@ _parse_statement:
 
     mov x0, x19
     mov x1, x20
+    adrp x2, kw_list@PAGE
+    add x2, x2, kw_list@PAGEOFF
+    bl _match_cstr_span
+    cbnz x0, Lstmt_list
+
+    mov x0, x19
+    mov x1, x20
     adrp x2, kw_match@PAGE
     add x2, x2, kw_match@PAGEOFF
     bl _match_cstr_span
@@ -141,6 +231,13 @@ _parse_statement:
     add x2, x2, kw_use@PAGEOFF
     bl _match_cstr_span
     cbnz x0, Lstmt_use
+
+    mov x0, x19
+    mov x1, x20
+    adrp x2, kw_return@PAGE
+    add x2, x2, kw_return@PAGEOFF
+    bl _match_cstr_span
+    cbnz x0, Lstmt_return_val
 
     b Lstmt_assign
 
@@ -316,10 +413,12 @@ Lstmt_str:
     bl _expect_char
     cbz x0, Lstmt_fail
 
-    bl _parse_string_literal
+    bl _parse_expr_value
     cbz x0, Lstmt_fail
+    cmp x2, #2
+    b.ne Lstmt_fail
     mov x21, x1 // ptr
-    mov x22, x2 // len
+    mov x22, x3 // len
 
     bl _consume_optional_semicolon
 
@@ -328,6 +427,83 @@ Lstmt_str:
     mov x2, x21
     mov x3, #0
     mov x4, #2 // type str
+    mov x5, x22
+    bl _define_variable
+    cbnz x0, Lstmt_fail
+
+    mov x0, #0
+    b Lstmt_return
+
+Lstmt_list:
+    bl _skip_whitespace
+    mov w0, #'<'
+    bl _expect_char
+    cbz x0, Lstmt_fail
+
+    bl _skip_whitespace
+    bl _parse_identifier
+    cbz x0, Lstmt_fail
+    mov x21, x0
+    mov x22, x1
+
+    mov x0, x21
+    mov x1, x22
+    adrp x2, kw_int@PAGE
+    add x2, x2, kw_int@PAGEOFF
+    bl _match_cstr_span
+    cbnz x0, Lstmt_list_int
+
+    mov x0, x21
+    mov x1, x22
+    adrp x2, kw_str@PAGE
+    add x2, x2, kw_str@PAGEOFF
+    bl _match_cstr_span
+    cbnz x0, Lstmt_list_str
+
+    adrp x0, msg_expected_type@PAGE
+    add x0, x0, msg_expected_type@PAGEOFF
+    bl _report_error_prefix
+    b Lstmt_fail
+
+Lstmt_list_int:
+    mov x23, #0
+    mov x24, #4
+    b Lstmt_list_type_done
+
+Lstmt_list_str:
+    mov x23, #2
+    mov x24, #5
+
+Lstmt_list_type_done:
+    bl _skip_whitespace
+    mov w0, #'>'
+    bl _expect_char
+    cbz x0, Lstmt_fail
+
+    bl _skip_whitespace
+    bl _parse_identifier
+    cbz x0, Lstmt_need_name
+    mov x19, x0
+    mov x20, x1
+
+    bl _skip_whitespace
+    mov w0, #'='
+    bl _expect_char
+    cbz x0, Lstmt_fail
+
+    mov x0, x23
+    bl _parse_list_literal_value
+    cbz x0, Lstmt_fail
+    mov x21, x1
+    mov x22, x2
+
+    bl _consume_optional_semicolon
+
+    mov x0, x19
+    mov x1, x20
+    mov x2, x21
+    mov x3, #0
+    mov x4, x24
     mov x5, x22
     bl _define_variable
     cbnz x0, Lstmt_fail
@@ -419,10 +595,12 @@ Lstmt_const_str:
     bl _expect_char
     cbz x0, Lstmt_fail
 
-    bl _parse_string_literal
+    bl _parse_expr_value
     cbz x0, Lstmt_fail
+    cmp x2, #2
+    b.ne Lstmt_fail
     mov x21, x1
-    mov x24, x2
+    mov x24, x3
 
 Lstmt_const_store:
     bl _consume_optional_semicolon
@@ -535,34 +713,8 @@ Lstmt_print_done:
     b Lstmt_return
 
 Lstmt_fn:
-    bl _parse_identifier
-    cbz x0, Lstmt_need_name
-
-    bl _skip_whitespace
-    mov w0, #'('
-    bl _expect_char
-    cbz x0, Lstmt_fail
-    bl _skip_whitespace
-    mov w0, #')'
-    bl _expect_char
-    cbz x0, Lstmt_fail
-    bl _skip_whitespace
-    mov w0, #'{'
-    bl _expect_char
-    cbz x0, Lstmt_fail
-
-Lstmt_fn_loop:
-    bl _skip_whitespace
-    bl _peek_char
-    cmp w0, #'}'
-    b.eq Lstmt_fn_done
-    cbz w0, Lstmt_fn_unclosed
-    bl _parse_statement
+    bl _parse_fn_definition
     cbnz x0, Lstmt_fail
-    b Lstmt_fn_loop
-
-Lstmt_fn_done:
-    bl _advance_char
     mov x0, #0
     b Lstmt_return
 
@@ -585,6 +737,8 @@ Lstmt_if:
     b.eq Lstmt_return  // propagate stop
     cmp x0, #3
     b.eq Lstmt_return  // propagate skip
+    cmp x0, #4
+    b.eq Lstmt_return  // propagate return
     b Lstmt_fail
 Lstmt_if_ok:
     mov x0, #0
@@ -624,6 +778,45 @@ Lstmt_use:
     mov x0, #0
     b Lstmt_return
 
+Lstmt_return_val:
+    bl _skip_whitespace
+    bl _peek_char
+    // Check if there's an expression to return
+    cmp w0, #'}'
+    b.eq Lstmt_return_void
+    cmp w0, #0
+    b.eq Lstmt_return_void
+    bl _parse_expr_value
+    cbz x0, Lstmt_fail
+    // Store return value
+    adrp x9, fn_return_value@PAGE
+    add x9, x9, fn_return_value@PAGEOFF
+    str x1, [x9]
+    adrp x9, fn_return_length@PAGE
+    add x9, x9, fn_return_length@PAGEOFF
+    str x3, [x9]
+    adrp x9, fn_return_flag@PAGE
+    add x9, x9, fn_return_flag@PAGEOFF
+    mov x10, #1
+    str x10, [x9]
+    bl _consume_optional_semicolon
+    mov x0, #4 // special return code: return
+    b Lstmt_return
+
+Lstmt_return_void:
+    adrp x9, fn_return_flag@PAGE
+    add x9, x9, fn_return_flag@PAGEOFF
+    mov x10, #1
+    str x10, [x9]
+    adrp x9, fn_return_value@PAGE
+    add x9, x9, fn_return_value@PAGEOFF
+    str xzr, [x9]
+    adrp x9, fn_return_length@PAGE
+    add x9, x9, fn_return_length@PAGEOFF
+    str xzr, [x9]
+    mov x0, #4 // special return code: return
+    b Lstmt_return
+
 Lstmt_assign:
     bl _skip_whitespace
     bl _peek_char
@@ -637,7 +830,19 @@ Lstmt_assign:
     b.eq Lstmt_assign_multiply
     cmp w0, #'/'
     b.eq Lstmt_assign_divide
+    cmp w0, #'('
+    b.eq Lstmt_fn_call
     b Lstmt_unknown
+
+Lstmt_fn_call:
+    // x19=name ptr, x20=name len
+    mov x0, x19
+    mov x1, x20
+    bl _call_function
+    cbnz x0, Lstmt_fail
+    bl _consume_optional_semicolon
+    mov x0, #0
+    b Lstmt_return
 
 Lstmt_assign_set:
     bl _advance_char
@@ -1063,6 +1268,8 @@ Lif_then_loop:
     b.eq Lif_then_stop_skip
     cmp x0, #3
     b.eq Lif_then_stop_skip
+    cmp x0, #4
+    b.eq Lif_then_stop_skip
     b Lif_parse_fail
 
 Lif_then_done:
@@ -1128,6 +1335,8 @@ Lif_skip_then:
     b.eq Lif_return  // propagate stop
     cmp x0, #3
     b.eq Lif_return  // propagate skip
+    cmp x0, #4
+    b.eq Lif_return  // propagate return
     b Lif_parse_fail
 
 Lif_execute_else_block:
@@ -1147,6 +1356,8 @@ Lif_else_loop:
     cmp x0, #2
     b.eq Lif_else_stop_skip
     cmp x0, #3
+    b.eq Lif_else_stop_skip
+    cmp x0, #4
     b.eq Lif_else_stop_skip
     b Lif_parse_fail
 
@@ -1343,11 +1554,39 @@ _parse_for_statement_after_keyword:
     stp x21, x22, [sp, #-16]!
     stp x23, x24, [sp, #-16]!
     stp x25, x26, [sp, #-16]!
+    stp x27, x28, [sp, #-16]!
 
     bl _skip_whitespace
     mov w0, #'('
     bl _expect_char
     cbz x0, Lfor_fail
+
+    // Probe for `for (item in iterable)` first.
+    adrp x9, cursor_pos@PAGE
+    add x9, x9, cursor_pos@PAGEOFF
+    ldr x26, [x9]
+    adrp x9, current_line@PAGE
+    add x9, x9, current_line@PAGEOFF
+    ldr x27, [x9]
+
+    bl _parse_identifier
+    cbz x0, Lfor_counted_restore
+    mov x24, x0
+    mov x25, x1
+
+    adrp x0, kw_in@PAGE
+    add x0, x0, kw_in@PAGEOFF
+    bl _consume_keyword
+    cbz x0, Lfor_counted_restore
+    b Lfor_in_setup
+
+Lfor_counted_restore:
+    adrp x9, cursor_pos@PAGE
+    add x9, x9, cursor_pos@PAGEOFF
+    str x26, [x9]
+    adrp x9, current_line@PAGE
+    add x9, x9, current_line@PAGEOFF
+    str x27, [x9]
 
     // --- Parse init statement (e.g. int i = 0) ---
     bl _parse_statement
@@ -1489,6 +1728,301 @@ Lfor_fail:
     mov x0, #1
 
 Lfor_return:
+    ldp x27, x28, [sp], #16
+    ldp x25, x26, [sp], #16
+    ldp x23, x24, [sp], #16
+    ldp x21, x22, [sp], #16
+    ldp x19, x20, [sp], #16
+    ldp x29, x30, [sp], #16
+    ret
+
+Lfor_in_setup:
+    bl _parse_for_iterable_value
+    cbz x0, Lfor_fail
+    mov x19, x1 // list start index
+    mov x20, x2 // list count
+    mov x21, x3 // element type
+
+    bl _skip_whitespace
+    mov w0, #')'
+    bl _expect_char
+    cbz x0, Lfor_fail
+
+    bl _skip_whitespace
+    mov w0, #'{'
+    bl _expect_char
+    cbz x0, Lfor_fail
+
+    adrp x9, cursor_pos@PAGE
+    add x9, x9, cursor_pos@PAGEOFF
+    ldr x22, [x9]
+    adrp x9, current_line@PAGE
+    add x9, x9, current_line@PAGEOFF
+    ldr x23, [x9]
+
+    cbz x20, Lfor_skip_block_done
+
+    mov x26, #0
+
+Lfor_in_iteration:
+    cmp x26, x20
+    b.ge Lfor_in_done
+
+    add x9, x19, x26
+    adrp x10, list_pool_values@PAGE
+    add x10, x10, list_pool_values@PAGEOFF
+    ldr x27, [x10, x9, lsl #3]
+    adrp x10, list_pool_lengths@PAGE
+    add x10, x10, list_pool_lengths@PAGEOFF
+    ldr x28, [x10, x9, lsl #3]
+
+    mov x0, x24
+    mov x1, x25
+    bl _lookup_variable
+    cbz x0, Lfor_in_define
+
+    mov x0, x24
+    mov x1, x25
+    mov x2, x27
+    mov x3, x21
+    mov x4, x28
+    bl _set_variable_full
+    cbnz x0, Lfor_fail
+    b Lfor_in_store_runtime
+
+Lfor_in_define:
+    mov x0, x24
+    mov x1, x25
+    mov x2, x27
+    mov x3, #0
+    mov x4, x21
+    mov x5, x28
+    bl _define_variable
+    cbnz x0, Lfor_fail
+
+Lfor_in_store_runtime:
+    cmp x21, #2
+    b.eq Lfor_in_body_reset
+    mov x0, x24
+    mov x1, x25
+    bl _lookup_variable
+    cbz x0, Lfor_fail
+    mov x0, x4
+    mov x1, x27
+    bl _record_store_variable
+    cbnz x0, Lfor_fail
+
+Lfor_in_body_reset:
+    adrp x9, cursor_pos@PAGE
+    add x9, x9, cursor_pos@PAGEOFF
+    str x22, [x9]
+    adrp x9, current_line@PAGE
+    add x9, x9, current_line@PAGEOFF
+    str x23, [x9]
+
+Lfor_in_body_loop:
+    bl _skip_whitespace
+    bl _peek_char
+    cmp w0, #'}'
+    b.eq Lfor_in_body_done
+    cbz w0, Lwhile_unclosed
+    bl _parse_statement
+    cbz x0, Lfor_in_body_loop
+    cmp x0, #2
+    b.eq Lfor_in_stop
+    cmp x0, #3
+    b.eq Lfor_in_skip_rest
+    b Lfor_fail
+
+Lfor_in_body_done:
+    bl _advance_char
+    add x26, x26, #1
+    b Lfor_in_iteration
+
+Lfor_in_skip_rest:
+    bl _skip_block_contents
+    cbnz x0, Lfor_fail
+    add x26, x26, #1
+    b Lfor_in_iteration
+
+Lfor_in_stop:
+    bl _skip_block_contents
+    cbnz x0, Lfor_fail
+    mov x0, #0
+    b Lfor_return
+
+Lfor_in_done:
+    mov x0, #0
+    b Lfor_return
+
+_parse_for_iterable_value:
+    stp x29, x30, [sp, #-16]!
+    mov x29, sp
+    stp x19, x20, [sp, #-16]!
+    stp x21, x22, [sp, #-16]!
+    stp x23, x24, [sp, #-16]!
+
+    adrp x9, cursor_pos@PAGE
+    add x9, x9, cursor_pos@PAGEOFF
+    ldr x19, [x9]
+    adrp x9, current_line@PAGE
+    add x9, x9, current_line@PAGEOFF
+    ldr x20, [x9]
+
+    mov x0, #-1
+    bl _parse_list_literal_value
+    cbnz x0, Lfor_iterable_ok
+
+    adrp x9, cursor_pos@PAGE
+    add x9, x9, cursor_pos@PAGEOFF
+    str x19, [x9]
+    adrp x9, current_line@PAGE
+    add x9, x9, current_line@PAGEOFF
+    str x20, [x9]
+
+    bl _parse_identifier
+    cbz x0, Lfor_iterable_fail
+    mov x21, x0
+    mov x22, x1
+    mov x0, x21
+    mov x1, x22
+    bl _lookup_variable
+    cbz x0, Lfor_iterable_fail
+
+    mov x23, x1
+    mov x24, x3
+    cmp x2, #4
+    b.eq Lfor_iterable_list_int
+    cmp x2, #5
+    b.eq Lfor_iterable_list_str
+    b Lfor_iterable_fail
+
+Lfor_iterable_list_int:
+    mov x0, #1
+    mov x1, x23
+    mov x2, x24
+    mov x3, #0
+    b Lfor_iterable_return
+
+Lfor_iterable_list_str:
+    mov x0, #1
+    mov x1, x23
+    mov x2, x24
+    mov x3, #2
+    b Lfor_iterable_return
+
+Lfor_iterable_ok:
+    b Lfor_iterable_return
+
+Lfor_iterable_fail:
+    adrp x0, msg_expected_list@PAGE
+    add x0, x0, msg_expected_list@PAGEOFF
+    bl _report_error_prefix
+    mov x0, #0
+
+Lfor_iterable_return:
+    ldp x23, x24, [sp], #16
+    ldp x21, x22, [sp], #16
+    ldp x19, x20, [sp], #16
+    ldp x29, x30, [sp], #16
+    ret
+
+_parse_list_literal_value:
+    stp x29, x30, [sp, #-16]!
+    mov x29, sp
+    stp x19, x20, [sp, #-16]!
+    stp x21, x22, [sp, #-16]!
+    stp x23, x24, [sp, #-16]!
+    stp x25, x26, [sp, #-16]!
+
+    mov x19, x0 // expected element type, -1 to infer
+
+    bl _skip_whitespace
+    bl _peek_char
+    cmp w0, #'['
+    b.ne Llist_fail
+    bl _advance_char
+
+    adrp x9, list_pool_count@PAGE
+    add x9, x9, list_pool_count@PAGEOFF
+    ldr x20, [x9]
+    mov x21, #0
+    mov x22, x19
+
+    bl _skip_whitespace
+    bl _peek_char
+    cmp w0, #']'
+    b.ne Llist_loop
+    bl _advance_char
+    cmp x22, #-1
+    b.eq Llist_fail
+    mov x0, #1
+    mov x1, x20
+    mov x2, x21
+    mov x3, x22
+    b Llist_return
+
+Llist_loop:
+    bl _parse_expr_value
+    cbz x0, Llist_fail
+    mov x23, x1
+    mov x24, x2
+    mov x25, x3
+
+    cmp x22, #-1
+    b.ne Llist_check_type
+    cmp x24, #0
+    b.eq Llist_set_type
+    cmp x24, #2
+    b.eq Llist_set_type
+    b Llist_fail
+
+Llist_set_type:
+    mov x22, x24
+    b Llist_store
+
+Llist_check_type:
+    cmp x24, x22
+    b.ne Llist_fail
+
+Llist_store:
+    adrp x9, list_pool_count@PAGE
+    add x9, x9, list_pool_count@PAGEOFF
+    ldr x10, [x9]
+    adrp x11, list_pool_values@PAGE
+    add x11, x11, list_pool_values@PAGEOFF
+    str x23, [x11, x10, lsl #3]
+    adrp x11, list_pool_lengths@PAGE
+    add x11, x11, list_pool_lengths@PAGEOFF
+    str x25, [x11, x10, lsl #3]
+    add x10, x10, #1
+    str x10, [x9]
+    add x21, x21, #1
+
+    bl _skip_whitespace
+    bl _peek_char
+    cmp w0, #','
+    b.eq Llist_take_comma
+    cmp w0, #']'
+    b.eq Llist_done
+    b Llist_fail
+
+Llist_take_comma:
+    bl _advance_char
+    b Llist_loop
+
+Llist_done:
+    bl _advance_char
+    mov x0, #1
+    mov x1, x20
+    mov x2, x21
+    mov x3, x22
+    b Llist_return
+
+Llist_fail:
+    mov x0, #0
+
+Llist_return:
     ldp x25, x26, [sp], #16
     ldp x23, x24, [sp], #16
     ldp x21, x22, [sp], #16
@@ -2199,9 +2733,39 @@ Lprimary_identifier:
     mov x0, x19
     mov x1, x20
     bl _lookup_variable
-    cbz x0, Lprimary_unknown_var
+    cbz x0, Lprimary_try_fn_call
     // x1=value, x2=type, x3=length already set by _lookup_variable
     mov x0, #1
+    b Lprimary_return
+
+Lprimary_try_fn_call:
+    // Not a variable; check if it's a function call
+    bl _skip_whitespace
+    bl _peek_char
+    cmp w0, #'('
+    b.ne Lprimary_unknown_var
+    // Try to call the function
+    mov x0, x19
+    mov x1, x20
+    bl _call_function
+    cbnz x0, Lprimary_fail
+    mov x20, x1
+    // Read return value
+    adrp x9, fn_return_value@PAGE
+    add x9, x9, fn_return_value@PAGEOFF
+    ldr x1, [x9]
+    mov x0, #1
+    mov x2, x20
+    cmp x20, #2
+    b.ne Lprimary_fn_call_non_str
+    adrp x9, fn_return_length@PAGE
+    add x9, x9, fn_return_length@PAGEOFF
+    ldr x3, [x9]
+    b Lprimary_fn_call_done
+Lprimary_fn_call_non_str:
+    mov x3, #0
+Lprimary_fn_call_done:
+    mov x4, #-1
     b Lprimary_return
 
 Lprimary_true:
@@ -2604,5 +3168,585 @@ _parse_string_value:
 
 Lstr_val_fail:
     mov x0, #0
+    ldp x29, x30, [sp], #16
+    ret
+
+// ========================================================
+// _parse_fn_definition
+// Parses:  fn name(type param, type param, ...) -> retType { body }
+// Stores the definition; skips the body.
+// ========================================================
+.global _parse_fn_definition
+.global _call_function
+.global _lookup_function
+
+_parse_fn_definition:
+    stp x29, x30, [sp, #-16]!
+    mov x29, sp
+    stp x19, x20, [sp, #-16]!
+    stp x21, x22, [sp, #-16]!
+    stp x23, x24, [sp, #-16]!
+    stp x25, x26, [sp, #-16]!
+
+    // Parse function name
+    bl _parse_identifier
+    cbz x0, Lfn_def_fail
+    mov x19, x0   // name ptr
+    mov x20, x1   // name len
+
+    mov x0, x19
+    mov x1, x20
+    bl _lookup_function
+    cbz x0, Lfn_def_new
+    mov x21, x1
+    mov x26, #1
+    b Lfn_def_after_name
+
+Lfn_def_new:
+    // Check fn table not full
+    adrp x9, fn_count@PAGE
+    add x9, x9, fn_count@PAGEOFF
+    ldr x21, [x9]
+    cmp x21, #32
+    b.ge Lfn_def_full
+    mov x26, #0
+
+    // Store name
+    adrp x9, fn_name_ptrs@PAGE
+    add x9, x9, fn_name_ptrs@PAGEOFF
+    str x19, [x9, x21, lsl #3]
+    adrp x9, fn_name_lens@PAGE
+    add x9, x9, fn_name_lens@PAGEOFF
+    str x20, [x9, x21, lsl #3]
+
+Lfn_def_after_name:
+
+    // Parse parameter list
+    bl _skip_whitespace
+    mov w0, #'('
+    bl _expect_char
+    cbz x0, Lfn_def_fail
+
+    mov x22, #0  // param count
+
+Lfn_def_param_loop:
+    bl _skip_whitespace
+    bl _peek_char
+    cmp w0, #')'
+    b.eq Lfn_def_params_done
+
+    // If not first param, expect comma
+    cbz x22, Lfn_def_parse_param
+    mov w0, #','
+    bl _expect_char
+    cbz x0, Lfn_def_fail
+    bl _skip_whitespace
+
+Lfn_def_parse_param:
+    cmp x22, #4
+    b.ge Lfn_def_too_many_params
+    // Parse type keyword (int, str, bool, byte)
+    bl _parse_identifier
+    cbz x0, Lfn_def_fail
+    mov x23, x0   // type name ptr
+    mov x24, x1   // type name len
+
+    // Determine type code
+    mov x0, x23
+    mov x1, x24
+    adrp x2, kw_int@PAGE
+    add x2, x2, kw_int@PAGEOFF
+    bl _match_cstr_span
+    cbnz x0, Lfn_def_param_type_int
+    mov x0, x23
+    mov x1, x24
+    adrp x2, kw_str@PAGE
+    add x2, x2, kw_str@PAGEOFF
+    bl _match_cstr_span
+    cbnz x0, Lfn_def_param_type_str
+    mov x0, x23
+    mov x1, x24
+    adrp x2, kw_bool@PAGE
+    add x2, x2, kw_bool@PAGEOFF
+    bl _match_cstr_span
+    cbnz x0, Lfn_def_param_type_bool
+    mov x0, x23
+    mov x1, x24
+    adrp x2, kw_byte@PAGE
+    add x2, x2, kw_byte@PAGEOFF
+    bl _match_cstr_span
+    cbnz x0, Lfn_def_param_type_byte
+    // default to int
+    b Lfn_def_param_type_int
+
+Lfn_def_param_type_int:
+    mov x25, #0
+    b Lfn_def_param_store_type
+Lfn_def_param_type_str:
+    mov x25, #2
+    b Lfn_def_param_store_type
+Lfn_def_param_type_bool:
+    mov x25, #1
+    b Lfn_def_param_store_type
+Lfn_def_param_type_byte:
+    mov x25, #3
+
+Lfn_def_param_store_type:
+    // Store param type: fn_param_types[fn_idx * 4 + param_idx]
+    cbnz x26, Lfn_def_param_skip_store
+    mov x9, x21
+    lsl x9, x9, #2         // fn_idx * 4
+    add x9, x9, x22        // + param_idx
+    adrp x10, fn_param_types@PAGE
+    add x10, x10, fn_param_types@PAGEOFF
+    str x25, [x10, x9, lsl #3]
+Lfn_def_param_skip_store:
+
+    // Parse param name
+    bl _skip_whitespace
+    bl _parse_identifier
+    cbz x0, Lfn_def_fail
+
+    // Store param name
+    mov x23, x0
+    mov x24, x1
+    cbnz x26, Lfn_def_param_done
+    mov x9, x21
+    lsl x9, x9, #2
+    add x9, x9, x22
+    adrp x10, fn_param_name_ptrs@PAGE
+    add x10, x10, fn_param_name_ptrs@PAGEOFF
+    str x23, [x10, x9, lsl #3]
+    adrp x10, fn_param_name_lens@PAGE
+    add x10, x10, fn_param_name_lens@PAGEOFF
+    str x24, [x10, x9, lsl #3]
+Lfn_def_param_done:
+
+    add x22, x22, #1
+    b Lfn_def_param_loop
+
+Lfn_def_params_done:
+    bl _advance_char // consume ')'
+
+    // Store param count
+    cbnz x26, Lfn_def_count_done
+    adrp x9, fn_param_counts@PAGE
+    add x9, x9, fn_param_counts@PAGEOFF
+    str x22, [x9, x21, lsl #3]
+Lfn_def_count_done:
+
+    // Check for optional -> return type
+    bl _skip_whitespace
+    bl _peek_char
+    cmp w0, #'-'
+    b.ne Lfn_def_no_return_type
+
+    bl _advance_char
+    bl _peek_char
+    cmp w0, #'>'
+    b.ne Lfn_def_fail
+    bl _advance_char
+
+    // Parse return type
+    bl _skip_whitespace
+    bl _parse_identifier
+    cbz x0, Lfn_def_fail
+    // Store return type (0=int, 1=bool, 2=str)
+    mov x23, x0
+    mov x24, x1
+    mov x0, x23
+    mov x1, x24
+    adrp x2, kw_str@PAGE
+    add x2, x2, kw_str@PAGEOFF
+    bl _match_cstr_span
+    cbnz x0, Lfn_def_ret_str
+    mov x0, x23
+    mov x1, x24
+    adrp x2, kw_bool@PAGE
+    add x2, x2, kw_bool@PAGEOFF
+    bl _match_cstr_span
+    cbnz x0, Lfn_def_ret_bool
+    mov x0, x23
+    mov x1, x24
+    adrp x2, kw_byte@PAGE
+    add x2, x2, kw_byte@PAGEOFF
+    bl _match_cstr_span
+    cbnz x0, Lfn_def_ret_byte
+    mov x25, #0  // default int
+    b Lfn_def_store_ret
+Lfn_def_ret_bool:
+    mov x25, #1
+    b Lfn_def_store_ret
+Lfn_def_ret_str:
+    mov x25, #2
+    b Lfn_def_store_ret
+Lfn_def_ret_byte:
+    mov x25, #3
+Lfn_def_store_ret:
+    cbnz x26, Lfn_def_expect_body
+    adrp x9, fn_return_types@PAGE
+    add x9, x9, fn_return_types@PAGEOFF
+    str x25, [x9, x21, lsl #3]
+    b Lfn_def_expect_body
+
+Lfn_def_no_return_type:
+    // No return type, store -1
+    mov x25, #-1
+    cbnz x26, Lfn_def_expect_body
+    adrp x9, fn_return_types@PAGE
+    add x9, x9, fn_return_types@PAGEOFF
+    str x25, [x9, x21, lsl #3]
+
+Lfn_def_expect_body:
+    bl _skip_whitespace
+    mov w0, #'{'
+    bl _expect_char
+    cbz x0, Lfn_def_fail
+
+    // Store cursor position of body start
+    adrp x9, cursor_pos@PAGE
+    add x9, x9, cursor_pos@PAGEOFF
+    ldr x23, [x9]
+    adrp x9, current_line@PAGE
+    add x9, x9, current_line@PAGEOFF
+    ldr x24, [x9]
+    cbnz x26, Lfn_def_skip_count
+    adrp x9, fn_body_cursors@PAGE
+    add x9, x9, fn_body_cursors@PAGEOFF
+    str x23, [x9, x21, lsl #3]
+    adrp x9, fn_body_lines@PAGE
+    add x9, x9, fn_body_lines@PAGEOFF
+    str x24, [x9, x21, lsl #3]
+
+    // Increment fn count
+    adrp x9, fn_count@PAGE
+    add x9, x9, fn_count@PAGEOFF
+    add x21, x21, #1
+    str x21, [x9]
+Lfn_def_skip_count:
+
+    // Skip the body
+    bl _skip_block_contents
+    cbnz x0, Lfn_def_fail
+
+    mov x0, #0
+    b Lfn_def_return
+
+Lfn_def_full:
+    adrp x0, msg_too_many_fns@PAGE
+    add x0, x0, msg_too_many_fns@PAGEOFF
+    mov x1, #2
+    bl _write_cstr_fd
+    b Lfn_def_fail
+
+Lfn_def_too_many_params:
+    adrp x0, msg_too_many_params@PAGE
+    add x0, x0, msg_too_many_params@PAGEOFF
+    bl _report_error_prefix
+    mov x0, x19
+    mov x1, x20
+    mov x2, #2
+    bl _write_buffer_fd
+    bl _write_newline_stderr
+    b Lfn_def_fail
+
+Lfn_def_fail:
+    mov x0, #1
+
+Lfn_def_return:
+    ldp x25, x26, [sp], #16
+    ldp x23, x24, [sp], #16
+    ldp x21, x22, [sp], #16
+    ldp x19, x20, [sp], #16
+    ldp x29, x30, [sp], #16
+    ret
+
+// ========================================================
+// _lookup_function
+// x0=name ptr, x1=name len
+// Returns: x0=1 if found, x1=fn index
+// ========================================================
+_lookup_function:
+    stp x29, x30, [sp, #-16]!
+    mov x29, sp
+    stp x19, x20, [sp, #-16]!
+    stp x21, x22, [sp, #-16]!
+
+    mov x19, x0
+    mov x20, x1
+    mov x21, #0
+    adrp x22, fn_count@PAGE
+    add x22, x22, fn_count@PAGEOFF
+    ldr x22, [x22]
+
+Lfn_lookup_loop:
+    cmp x21, x22
+    b.ge Lfn_lookup_fail
+    adrp x9, fn_name_lens@PAGE
+    add x9, x9, fn_name_lens@PAGEOFF
+    ldr x10, [x9, x21, lsl #3]
+    cmp x10, x20
+    b.ne Lfn_lookup_next
+    adrp x9, fn_name_ptrs@PAGE
+    add x9, x9, fn_name_ptrs@PAGEOFF
+    ldr x11, [x9, x21, lsl #3]
+    mov x0, x19
+    mov x1, x20
+    mov x2, x11
+    bl _match_span_span
+    cbnz x0, Lfn_lookup_found
+Lfn_lookup_next:
+    add x21, x21, #1
+    b Lfn_lookup_loop
+
+Lfn_lookup_found:
+    mov x0, #1
+    mov x1, x21
+    b Lfn_lookup_return
+
+Lfn_lookup_fail:
+    mov x0, #0
+
+Lfn_lookup_return:
+    ldp x21, x22, [sp], #16
+    ldp x19, x20, [sp], #16
+    ldp x29, x30, [sp], #16
+    ret
+
+// ========================================================
+// _call_function
+// x0=name ptr, x1=name len
+// Cursor should be right before '('
+// Returns: x0=0 on success
+// ========================================================
+_call_function:
+    stp x29, x30, [sp, #-16]!
+    mov x29, sp
+    stp x19, x20, [sp, #-16]!
+    stp x21, x22, [sp, #-16]!
+    stp x23, x24, [sp, #-16]!
+    stp x25, x26, [sp, #-16]!
+    stp x27, x28, [sp, #-16]!
+
+    mov x19, x0   // name ptr
+    mov x20, x1   // name len
+
+    // Look up the function
+    mov x0, x19
+    mov x1, x20
+    bl _lookup_function
+    cbz x0, Lfn_call_unknown
+    mov x21, x1   // fn index
+
+    // Save current var count so we can restore after call
+    adrp x9, var_count@PAGE
+    add x9, x9, var_count@PAGEOFF
+    ldr x22, [x9]  // saved var count
+
+    // Get param count
+    adrp x9, fn_param_counts@PAGE
+    add x9, x9, fn_param_counts@PAGEOFF
+    ldr x23, [x9, x21, lsl #3]  // expected param count
+
+    // Parse '(' and arguments
+    bl _skip_whitespace
+    mov w0, #'('
+    bl _expect_char
+    cbz x0, Lfn_call_fail
+
+    mov x24, #0  // parsed arg count
+
+Lfn_call_arg_loop:
+    bl _skip_whitespace
+    bl _peek_char
+    cmp w0, #')'
+    b.eq Lfn_call_args_done
+
+    // If not first arg, expect comma
+    cbz x24, Lfn_call_parse_arg
+    mov w0, #','
+    bl _expect_char
+    cbz x0, Lfn_call_fail
+    bl _skip_whitespace
+
+Lfn_call_parse_arg:
+    cmp x24, x23
+    b.ge Lfn_call_wrong_args
+    cmp x24, #4
+    b.ge Lfn_call_wrong_args
+    // Get the param type and name for this argument
+    mov x9, x21
+    lsl x9, x9, #2         // fn_idx * 4
+    add x9, x9, x24        // + param_idx
+
+    // Save param name info for defining variable
+    adrp x10, fn_param_name_ptrs@PAGE
+    add x10, x10, fn_param_name_ptrs@PAGEOFF
+    ldr x25, [x10, x9, lsl #3]
+    adrp x10, fn_param_name_lens@PAGE
+    add x10, x10, fn_param_name_lens@PAGEOFF
+    ldr x26, [x10, x9, lsl #3]
+    adrp x10, fn_param_types@PAGE
+    add x10, x10, fn_param_types@PAGEOFF
+    ldr x27, [x10, x9, lsl #3]
+
+    bl _parse_expr_value
+    cbz x0, Lfn_call_fail
+    mov x28, x1  // arg value
+    mov x6, x2   // arg type
+    mov x7, x3   // arg length
+
+    cmp x6, x27
+    b.eq Lfn_call_define_arg
+    cmp x27, #3
+    b.ne Lfn_call_fail
+    cmp x6, #0
+    b.ne Lfn_call_fail
+
+Lfn_call_define_arg:
+    mov x0, x25
+    mov x1, x26
+    mov x2, x28
+    mov x3, #0   // not const
+    mov x4, x27  // type
+    mov x5, x7
+    bl _define_variable
+    cbnz x0, Lfn_call_fail
+
+Lfn_call_arg_next:
+    add x24, x24, #1
+    b Lfn_call_arg_loop
+
+Lfn_call_args_done:
+    bl _advance_char // consume ')'
+
+    // Check arg count matches param count
+    cmp x24, x23
+    b.ne Lfn_call_wrong_args
+
+    // Save current cursor position (after the call site)
+    adrp x9, cursor_pos@PAGE
+    add x9, x9, cursor_pos@PAGEOFF
+    ldr x25, [x9]
+    adrp x9, current_line@PAGE
+    add x9, x9, current_line@PAGEOFF
+    ldr x26, [x9]
+
+    // Clear return flag
+    adrp x9, fn_return_flag@PAGE
+    add x9, x9, fn_return_flag@PAGEOFF
+    str xzr, [x9]
+    adrp x9, fn_return_length@PAGE
+    add x9, x9, fn_return_length@PAGEOFF
+    str xzr, [x9]
+
+    // Jump cursor to function body
+    adrp x9, fn_body_cursors@PAGE
+    add x9, x9, fn_body_cursors@PAGEOFF
+    ldr x27, [x9, x21, lsl #3]
+    adrp x9, fn_body_lines@PAGE
+    add x9, x9, fn_body_lines@PAGEOFF
+    ldr x28, [x9, x21, lsl #3]
+    adrp x9, cursor_pos@PAGE
+    add x9, x9, cursor_pos@PAGEOFF
+    str x27, [x9]
+    adrp x9, current_line@PAGE
+    add x9, x9, current_line@PAGEOFF
+    str x28, [x9]
+
+    // Execute function body
+Lfn_call_body_loop:
+    // Check return flag
+    adrp x9, fn_return_flag@PAGE
+    add x9, x9, fn_return_flag@PAGEOFF
+    ldr x10, [x9]
+    cbnz x10, Lfn_call_body_returned
+
+    bl _skip_whitespace
+    bl _peek_char
+    cmp w0, #'}'
+    b.eq Lfn_call_body_done
+    cbz w0, Lfn_call_fail
+
+    bl _parse_statement
+    cbz x0, Lfn_call_body_loop
+    cmp x0, #4  // return
+    b.eq Lfn_call_body_returned
+    b Lfn_call_fail
+
+Lfn_call_body_returned:
+    // Skip rest of body
+    bl _skip_whitespace
+    bl _peek_char
+    cmp w0, #'}'
+    b.eq Lfn_call_body_done
+    cbz w0, Lfn_call_fail
+    cmp w0, #'{'
+    b.eq Lfn_call_skip_nested
+    bl _advance_char
+    b Lfn_call_body_returned
+
+Lfn_call_skip_nested:
+    bl _advance_char
+    bl _skip_block_contents
+    b Lfn_call_body_returned
+
+Lfn_call_body_done:
+    bl _advance_char // consume '}'
+
+    // Restore cursor to call site
+    adrp x9, cursor_pos@PAGE
+    add x9, x9, cursor_pos@PAGEOFF
+    str x25, [x9]
+    adrp x9, current_line@PAGE
+    add x9, x9, current_line@PAGEOFF
+    str x26, [x9]
+
+    // Remove param variables (restore var count)
+    adrp x9, var_count@PAGE
+    add x9, x9, var_count@PAGEOFF
+    str x22, [x9]
+
+    // Clear return flag
+    adrp x9, fn_return_flag@PAGE
+    add x9, x9, fn_return_flag@PAGEOFF
+    str xzr, [x9]
+
+    mov x0, #0
+    adrp x9, fn_return_types@PAGE
+    add x9, x9, fn_return_types@PAGEOFF
+    ldr x1, [x9, x21, lsl #3]
+    b Lfn_call_return
+
+Lfn_call_unknown:
+    adrp x0, msg_unknown_fn@PAGE
+    add x0, x0, msg_unknown_fn@PAGEOFF
+    bl _report_error_prefix
+    mov x0, x19
+    mov x1, x20
+    mov x2, #2
+    bl _write_buffer_fd
+    bl _write_newline_stderr
+    b Lfn_call_fail
+
+Lfn_call_wrong_args:
+    adrp x0, msg_wrong_arg_count@PAGE
+    add x0, x0, msg_wrong_arg_count@PAGEOFF
+    bl _report_error_prefix
+    b Lfn_call_fail
+
+Lfn_call_fail:
+    // Restore var count on failure too
+    adrp x9, var_count@PAGE
+    add x9, x9, var_count@PAGEOFF
+    str x22, [x9]
+    mov x0, #1
+
+Lfn_call_return:
+    ldp x27, x28, [sp], #16
+    ldp x25, x26, [sp], #16
+    ldp x23, x24, [sp], #16
+    ldp x21, x22, [sp], #16
+    ldp x19, x20, [sp], #16
     ldp x29, x30, [sp], #16
     ret

@@ -3,6 +3,7 @@
  .global _define_variable
  .global _set_variable
  .global _lookup_variable
+ .global _set_variable_full
  .global _record_print_value
 .global _record_store_variable
 .global _record_print_variable
@@ -221,6 +222,95 @@ Llookup_fail:
     mov x4, #-1
 
 Llookup_return:
+    ldp x21, x22, [sp], #16
+    ldp x19, x20, [sp], #16
+    ldp x29, x30, [sp], #16
+    ret
+
+_set_variable_full:
+    stp x29, x30, [sp, #-16]!
+    mov x29, sp
+    stp x19, x20, [sp, #-16]!
+    stp x21, x22, [sp, #-16]!
+    stp x23, x24, [sp, #-16]!
+    stp x25, x26, [sp, #-16]!
+
+    mov x19, x0
+    mov x20, x1
+    mov x21, x2
+    mov x25, x3
+    mov x26, x4
+    mov x22, #0
+    adrp x23, var_count@PAGE
+    add x23, x23, var_count@PAGEOFF
+    ldr x23, [x23]
+
+Lset_full_loop:
+    cmp x22, x23
+    b.ge Lset_full_unknown
+
+    adrp x9, var_name_lens@PAGE
+    add x9, x9, var_name_lens@PAGEOFF
+    ldr x10, [x9, x22, lsl #3]
+    cmp x10, x20
+    b.ne Lset_full_next
+
+    adrp x9, var_name_ptrs@PAGE
+    add x9, x9, var_name_ptrs@PAGEOFF
+    ldr x11, [x9, x22, lsl #3]
+    mov x0, x19
+    mov x1, x20
+    mov x2, x11
+    bl _match_span_span
+    cbz x0, Lset_full_next
+
+    adrp x9, var_const_flags@PAGE
+    add x9, x9, var_const_flags@PAGEOFF
+    ldr x10, [x9, x22, lsl #3]
+    cbnz x10, Lset_full_const
+
+    adrp x9, var_values@PAGE
+    add x9, x9, var_values@PAGEOFF
+    str x21, [x9, x22, lsl #3]
+    adrp x9, var_types@PAGE
+    add x9, x9, var_types@PAGEOFF
+    str x25, [x9, x22, lsl #3]
+    adrp x9, var_lengths@PAGE
+    add x9, x9, var_lengths@PAGEOFF
+    str x26, [x9, x22, lsl #3]
+    mov x0, #0
+    b Lset_full_return
+
+Lset_full_next:
+    add x22, x22, #1
+    b Lset_full_loop
+
+Lset_full_unknown:
+    adrp x0, msg_unknown_var@PAGE
+    add x0, x0, msg_unknown_var@PAGEOFF
+    bl _report_error_prefix
+    mov x0, x19
+    mov x1, x20
+    mov x2, #2
+    bl _write_buffer_fd
+    bl _write_newline_stderr
+    mov x0, #1
+    b Lset_full_return
+
+Lset_full_const:
+    adrp x0, msg_const_assign@PAGE
+    add x0, x0, msg_const_assign@PAGEOFF
+    bl _report_error_prefix
+    mov x0, x19
+    mov x1, x20
+    mov x2, #2
+    bl _write_buffer_fd
+    bl _write_newline_stderr
+    mov x0, #1
+
+Lset_full_return:
+    ldp x25, x26, [sp], #16
+    ldp x23, x24, [sp], #16
     ldp x21, x22, [sp], #16
     ldp x19, x20, [sp], #16
     ldp x29, x30, [sp], #16
