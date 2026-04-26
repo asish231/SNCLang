@@ -102,6 +102,27 @@ _parse_statement:
 
     mov x0, x19
     mov x1, x20
+    adrp x2, kw_for@PAGE
+    add x2, x2, kw_for@PAGEOFF
+    bl _match_cstr_span
+    cbnz x0, Lstmt_for
+
+    mov x0, x19
+    mov x1, x20
+    adrp x2, kw_stop@PAGE
+    add x2, x2, kw_stop@PAGEOFF
+    bl _match_cstr_span
+    cbnz x0, Lstmt_stop
+
+    mov x0, x19
+    mov x1, x20
+    adrp x2, kw_skip@PAGE
+    add x2, x2, kw_skip@PAGEOFF
+    bl _match_cstr_span
+    cbnz x0, Lstmt_skip
+
+    mov x0, x19
+    mov x1, x20
     adrp x2, kw_str@PAGE
     add x2, x2, kw_str@PAGEOFF
     bl _match_cstr_span
@@ -559,7 +580,13 @@ Lstmt_fn_unclosed:
 
 Lstmt_if:
     bl _parse_if_statement_after_keyword
-    cbnz x0, Lstmt_fail
+    cbz x0, Lstmt_if_ok
+    cmp x0, #2
+    b.eq Lstmt_return  // propagate stop
+    cmp x0, #3
+    b.eq Lstmt_return  // propagate skip
+    b Lstmt_fail
+Lstmt_if_ok:
     mov x0, #0
     b Lstmt_return
 
@@ -567,6 +594,22 @@ Lstmt_while:
     bl _parse_while_statement_after_keyword
     cbnz x0, Lstmt_fail
     mov x0, #0
+    b Lstmt_return
+
+Lstmt_for:
+    bl _parse_for_statement_after_keyword
+    cbnz x0, Lstmt_fail
+    mov x0, #0
+    b Lstmt_return
+
+Lstmt_stop:
+    bl _consume_optional_semicolon
+    mov x0, #2 // special return code: stop
+    b Lstmt_return
+
+Lstmt_skip:
+    bl _consume_optional_semicolon
+    mov x0, #3 // special return code: skip
     b Lstmt_return
 
 Lstmt_match:
@@ -1015,8 +1058,12 @@ Lif_then_loop:
     b.eq Lif_then_done
     cbz w0, Lif_unclosed
     bl _parse_statement
-    cbnz x0, Lif_parse_fail
-    b Lif_then_loop
+    cbz x0, Lif_then_loop
+    cmp x0, #2
+    b.eq Lif_then_stop_skip
+    cmp x0, #3
+    b.eq Lif_then_stop_skip
+    b Lif_parse_fail
 
 Lif_then_done:
     bl _advance_char
@@ -1030,6 +1077,31 @@ Lif_then_done:
     bl _skip_if_statement_after_keyword
     cbnz x0, Lif_parse_fail
     b Lif_done
+
+Lif_then_stop_skip:
+    // Propagate stop/skip: skip rest of then-block, skip else if present, return code
+    mov x20, x0
+    bl _skip_block_contents
+    cbnz x0, Lif_parse_fail
+    bl _consume_optional_else
+    cbz x0, Lif_propagate_code
+    adrp x0, kw_if@PAGE
+    add x0, x0, kw_if@PAGEOFF
+    bl _consume_keyword
+    cbz x0, Lif_then_stop_skip_else_block
+    bl _skip_if_statement_after_keyword
+    cbnz x0, Lif_parse_fail
+    b Lif_propagate_code
+Lif_then_stop_skip_else_block:
+    bl _skip_whitespace
+    mov w0, #'{'
+    bl _expect_char
+    cbz x0, Lif_parse_fail
+    bl _skip_block_contents
+    cbnz x0, Lif_parse_fail
+Lif_propagate_code:
+    mov x0, x20
+    b Lif_return
 
 Lif_skip_else_block:
     bl _skip_whitespace
@@ -1051,8 +1123,12 @@ Lif_skip_then:
     bl _consume_keyword
     cbz x0, Lif_execute_else_block
     bl _parse_if_statement_after_keyword
-    cbnz x0, Lif_parse_fail
-    b Lif_done
+    cbz x0, Lif_done
+    cmp x0, #2
+    b.eq Lif_return  // propagate stop
+    cmp x0, #3
+    b.eq Lif_return  // propagate skip
+    b Lif_parse_fail
 
 Lif_execute_else_block:
     bl _skip_whitespace
@@ -1067,8 +1143,19 @@ Lif_else_loop:
     b.eq Lif_else_done
     cbz w0, Lif_unclosed
     bl _parse_statement
+    cbz x0, Lif_else_loop
+    cmp x0, #2
+    b.eq Lif_else_stop_skip
+    cmp x0, #3
+    b.eq Lif_else_stop_skip
+    b Lif_parse_fail
+
+Lif_else_stop_skip:
+    mov x20, x0
+    bl _skip_block_contents
     cbnz x0, Lif_parse_fail
-    b Lif_else_loop
+    mov x0, x20
+    b Lif_return
 
 Lif_else_done:
     bl _advance_char
@@ -1194,8 +1281,25 @@ Lwhile_body_loop:
     b.eq Lwhile_body_done
     cbz w0, Lwhile_unclosed
     bl _parse_statement
+    cbz x0, Lwhile_body_loop
+    cmp x0, #2 // stop
+    b.eq Lwhile_stop
+    cmp x0, #3 // skip
+    b.eq Lwhile_skip
+    b Lwhile_fail
+
+Lwhile_stop:
+    // skip rest of block, then exit loop
+    bl _skip_block_contents
     cbnz x0, Lwhile_fail
-    b Lwhile_body_loop
+    mov x0, #0
+    b Lwhile_return
+
+Lwhile_skip:
+    // skip rest of block, then re-enter loop
+    bl _skip_block_contents
+    cbnz x0, Lwhile_fail
+    b Lwhile_loop
 
 Lwhile_body_done:
     bl _advance_char
@@ -1222,6 +1326,170 @@ Lwhile_fail:
     mov x0, #1
 
 Lwhile_return:
+    ldp x23, x24, [sp], #16
+    ldp x21, x22, [sp], #16
+    ldp x19, x20, [sp], #16
+    ldp x29, x30, [sp], #16
+    ret
+
+// ========================================================
+// for (init, condition, update) { body }
+// Compile-time interpretation for now.
+// ========================================================
+_parse_for_statement_after_keyword:
+    stp x29, x30, [sp, #-16]!
+    mov x29, sp
+    stp x19, x20, [sp, #-16]!
+    stp x21, x22, [sp, #-16]!
+    stp x23, x24, [sp, #-16]!
+    stp x25, x26, [sp, #-16]!
+
+    bl _skip_whitespace
+    mov w0, #'('
+    bl _expect_char
+    cbz x0, Lfor_fail
+
+    // --- Parse init statement (e.g. int i = 0) ---
+    bl _parse_statement
+    cbnz x0, Lfor_fail
+
+    // Expect comma separator
+    bl _skip_whitespace
+    mov w0, #','
+    bl _expect_char
+    cbz x0, Lfor_fail
+
+    // Save cursor for condition re-eval
+    adrp x9, cursor_pos@PAGE
+    add x9, x9, cursor_pos@PAGEOFF
+    ldr x19, [x9]
+    adrp x9, current_line@PAGE
+    add x9, x9, current_line@PAGEOFF
+    ldr x20, [x9]
+
+Lfor_iteration:
+    // Restore condition cursor
+    adrp x9, cursor_pos@PAGE
+    add x9, x9, cursor_pos@PAGEOFF
+    str x19, [x9]
+    adrp x9, current_line@PAGE
+    add x9, x9, current_line@PAGEOFF
+    str x20, [x9]
+
+    // --- Parse condition ---
+    bl _parse_condition_value
+    cbz x0, Lfor_fail
+    mov x21, x1
+
+    // Expect comma separator
+    bl _skip_whitespace
+    mov w0, #','
+    bl _expect_char
+    cbz x0, Lfor_fail
+
+    // Save update cursor
+    adrp x9, cursor_pos@PAGE
+    add x9, x9, cursor_pos@PAGEOFF
+    ldr x22, [x9]
+    adrp x9, current_line@PAGE
+    add x9, x9, current_line@PAGEOFF
+    ldr x23, [x9]
+
+    // --- Skip over update expression (don't execute yet) ---
+    // We need to find the closing ')' then '{'
+    // First, skip the update text until ')'
+Lfor_skip_update_text:
+    bl _peek_char
+    cbz w0, Lfor_fail
+    cmp w0, #')'
+    b.eq Lfor_update_end
+    bl _advance_char
+    b Lfor_skip_update_text
+
+Lfor_update_end:
+    bl _advance_char // consume ')'
+
+    bl _skip_whitespace
+    mov w0, #'{'
+    bl _expect_char
+    cbz x0, Lfor_fail
+
+    // Save body cursor
+    adrp x9, cursor_pos@PAGE
+    add x9, x9, cursor_pos@PAGEOFF
+    ldr x24, [x9]
+    adrp x9, current_line@PAGE
+    add x9, x9, current_line@PAGEOFF
+    ldr x25, [x9]
+
+    // If condition is false, skip block and done
+    cbz x21, Lfor_skip_block_done
+
+    // --- Execute body ---
+Lfor_body_loop:
+    bl _skip_whitespace
+    bl _peek_char
+    cmp w0, #'}'
+    b.eq Lfor_body_done
+    cbz w0, Lwhile_unclosed
+    bl _parse_statement
+    cbz x0, Lfor_body_loop
+    cmp x0, #2 // stop
+    b.eq Lfor_stop
+    cmp x0, #3 // skip
+    b.eq Lfor_body_skip_rest
+    b Lfor_fail
+
+Lfor_body_skip_rest:
+    bl _skip_block_contents
+    cbnz x0, Lfor_fail
+    b Lfor_exec_update
+
+Lfor_body_done:
+    bl _advance_char
+
+Lfor_exec_update:
+    // --- Execute update statement ---
+    // Restore update cursor
+    adrp x9, cursor_pos@PAGE
+    add x9, x9, cursor_pos@PAGEOFF
+    str x22, [x9]
+    adrp x9, current_line@PAGE
+    add x9, x9, current_line@PAGEOFF
+    str x23, [x9]
+
+    // Parse update as a statement (e.g. i += 1)
+    bl _parse_statement
+    cbnz x0, Lfor_fail
+
+    // Restore body cursor for next iteration
+    adrp x9, cursor_pos@PAGE
+    add x9, x9, cursor_pos@PAGEOFF
+    str x24, [x9]
+    adrp x9, current_line@PAGE
+    add x9, x9, current_line@PAGEOFF
+    str x25, [x9]
+
+    // Skip the ')' and '{' again by jumping back to condition
+    b Lfor_iteration
+
+Lfor_stop:
+    bl _skip_block_contents
+    cbnz x0, Lfor_fail
+    mov x0, #0
+    b Lfor_return
+
+Lfor_skip_block_done:
+    bl _skip_block_contents
+    cbnz x0, Lfor_fail
+    mov x0, #0
+    b Lfor_return
+
+Lfor_fail:
+    mov x0, #1
+
+Lfor_return:
+    ldp x25, x26, [sp], #16
     ldp x23, x24, [sp], #16
     ldp x21, x22, [sp], #16
     ldp x19, x20, [sp], #16

@@ -54,6 +54,9 @@ test: snc
 	./snc examples/spec_batch.sn > /tmp/snc_spec_batch.s
 	clang /tmp/snc_spec_batch.s -o /tmp/snc_spec_batch
 	/tmp/snc_spec_batch
+	./snc examples/for_loop.sn > /tmp/snc_for_loop.s
+	clang /tmp/snc_for_loop.s -o /tmp/snc_for_loop
+	/tmp/snc_for_loop
 
 clean:
 	rm -f snc src/*.o

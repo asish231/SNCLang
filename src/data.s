@@ -37,6 +37,10 @@
 .global kw_match
 .global kw_default
 .global kw_use
+.global kw_for
+.global kw_stop
+.global kw_skip
+.global kw_in
 .global asm_header
 .global asm_print_fmt_adrp
 .global asm_print_val_adrp
@@ -82,10 +86,28 @@
 .global asm_math_mod_x1_x10
 .global asm_var_slot_prefix
 .global asm_store_data_prefix
+.global asm_label_prefix
+.global asm_label_suffix
+.global asm_branch
+.global asm_branch_zero
+.global asm_branch_nonzero
+.global asm_cmp_x11_x10
+.global asm_cset_gt
+.global asm_cset_lt
+.global asm_cset_ge
+.global asm_cset_le
+.global asm_cset_eq
+.global asm_cset_ne
+.global asm_load_x11_var
+.global asm_load_x10_var
+.global asm_store_x11_var
+.global asm_add_x11_imm
+.global asm_sub_x11_imm
 .global newline_char
 .global zero_qword
 .global single_char
 .global close_brace_char
+.global label_counter
 .global buffer
 .global number_buffer
 .global source_ptr
@@ -147,6 +169,10 @@ kw_byte:           .asciz "byte"
 kw_match:          .asciz "match"
 kw_default:        .asciz "default"
 kw_use:            .asciz "use"
+kw_for:            .asciz "for"
+kw_stop:           .asciz "stop"
+kw_skip:           .asciz "skip"
+kw_in:             .asciz "in"
 asm_header:
     .asciz ".global _main\n.align 4\n.extern _printf\n\n.text\n_main:\n    stp x29, x30, [sp, #-16]!\n    mov x29, sp\n"
 asm_print_fmt_int_adrp:
@@ -235,6 +261,40 @@ asm_var_slot_prefix:
     .asciz "var_slot_"
 asm_store_data_prefix:
     .asciz "store_val_"
+asm_label_prefix:
+    .asciz "L_snl_"
+asm_label_suffix:
+    .asciz ":\n"
+asm_branch:
+    .asciz "    b L_snl_"
+asm_branch_zero:
+    .asciz "    cbz x11, L_snl_"
+asm_branch_nonzero:
+    .asciz "    cbnz x11, L_snl_"
+asm_cmp_x11_x10:
+    .asciz "    cmp x11, x10\n"
+asm_cset_gt:
+    .asciz "    cset x11, gt\n"
+asm_cset_lt:
+    .asciz "    cset x11, lt\n"
+asm_cset_ge:
+    .asciz "    cset x11, ge\n"
+asm_cset_le:
+    .asciz "    cset x11, le\n"
+asm_cset_eq:
+    .asciz "    cset x11, eq\n"
+asm_cset_ne:
+    .asciz "    cset x11, ne\n"
+asm_load_x11_var:
+    .asciz "    adrp x11, var_slot_"
+asm_load_x10_var:
+    .asciz "    adrp x12, var_slot_"
+asm_store_x11_var:
+    .asciz "    str x11, [x12, var_slot_"
+asm_add_x11_imm:
+    .asciz "    add x11, x11, #"
+asm_sub_x11_imm:
+    .asciz "    sub x11, x11, #"
 newline_char:      .byte 10
 zero_qword:        .quad 0
 single_char:       .byte 0
@@ -251,6 +311,7 @@ current_line:   .space 8
 var_count:      .space 8
 print_count:    .space 8
 op_count:       .space 8
+label_counter:  .space 8
 var_name_ptrs:  .space 512
 var_name_lens:  .space 512
 var_values:     .space 512
