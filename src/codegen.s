@@ -85,9 +85,17 @@ _emit_operation:
     cmp x21, #2
     b.eq Lemit_op_print_var
     cmp x21, #7
-    b.le Lemit_op_store_math
+    b.le Lemit_op_store_math_imm
     cmp x21, #12
-    b.le Lemit_op_print_math
+    b.le Lemit_op_print_math_imm
+    cmp x21, #17
+    b.le Lemit_op_store_math_var
+    cmp x21, #22
+    b.le Lemit_op_print_math_var
+    cmp x21, #27
+    b.le Lemit_op_store_math_target_imm
+    cmp x21, #32
+    b.le Lemit_op_store_math_target_var
     b Lemit_op_done
 
 Lemit_op_print_value:
@@ -165,7 +173,7 @@ Lemit_op_print_var:
     bl _write_cstr_fd
     b Lemit_op_done
 
-Lemit_op_store_math:
+Lemit_op_store_math_imm:
     adrp x0, asm_math_var_x11_adrp@PAGE
     add x0, x0, asm_math_var_x11_adrp@PAGEOFF
     mov x1, #1
@@ -236,7 +244,7 @@ Lemit_op_store_math:
     bl _write_cstr_fd
     b Lemit_op_done
 
-Lemit_op_print_math:
+Lemit_op_print_math_imm:
     adrp x0, asm_print_fmt_int_adrp@PAGE
     add x0, x0, asm_print_fmt_int_adrp@PAGEOFF
     mov x1, #1
@@ -292,6 +300,290 @@ Lemit_op_print_math:
     add x0, x0, asm_print_stack_only@PAGEOFF
     mov x1, #1
     bl _write_cstr_fd
+    b Lemit_op_done
+
+Lemit_op_store_math_var:
+    adrp x0, asm_math_var_x11_adrp@PAGE
+    add x0, x0, asm_math_var_x11_adrp@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+    adrp x20, op_arg0@PAGE
+    add x20, x20, op_arg0@PAGEOFF
+    ldr x0, [x20, x19, lsl #3]
+    mov x1, #1
+    bl _write_u64_fd
+    adrp x0, asm_math_var_x11_ldr@PAGE
+    add x0, x0, asm_math_var_x11_ldr@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+    adrp x20, op_arg0@PAGE
+    add x20, x20, op_arg0@PAGEOFF
+    ldr x0, [x20, x19, lsl #3]
+    mov x1, #1
+    bl _write_u64_fd
+    adrp x0, asm_store_var_suffix@PAGE
+    add x0, x0, asm_store_var_suffix@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+
+    adrp x0, asm_math_var_x10_adrp@PAGE
+    add x0, x0, asm_math_var_x10_adrp@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+    adrp x20, op_arg1@PAGE
+    add x20, x20, op_arg1@PAGEOFF
+    ldr x0, [x20, x19, lsl #3]
+    mov x1, #1
+    bl _write_u64_fd
+    adrp x0, asm_math_var_x10_ldr@PAGE
+    add x0, x0, asm_math_var_x10_ldr@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+    adrp x20, op_arg1@PAGE
+    add x20, x20, op_arg1@PAGEOFF
+    ldr x0, [x20, x19, lsl #3]
+    mov x1, #1
+    bl _write_u64_fd
+    adrp x0, asm_store_var_suffix@PAGE
+    add x0, x0, asm_store_var_suffix@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+
+    sub x22, x21, #12
+    mov x0, x22
+    bl _emit_math_opcode_x11
+
+    adrp x0, asm_math_store_x11_adrp@PAGE
+    add x0, x0, asm_math_store_x11_adrp@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+    adrp x20, op_arg0@PAGE
+    add x20, x20, op_arg0@PAGEOFF
+    ldr x0, [x20, x19, lsl #3]
+    mov x1, #1
+    bl _write_u64_fd
+    adrp x0, asm_math_store_x11_str@PAGE
+    add x0, x0, asm_math_store_x11_str@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+    adrp x20, op_arg0@PAGE
+    add x20, x20, op_arg0@PAGEOFF
+    ldr x0, [x20, x19, lsl #3]
+    mov x1, #1
+    bl _write_u64_fd
+    adrp x0, asm_store_var_suffix@PAGE
+    add x0, x0, asm_store_var_suffix@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+    b Lemit_op_done
+
+Lemit_op_print_math_var:
+    adrp x0, asm_print_fmt_int_adrp@PAGE
+    add x0, x0, asm_print_fmt_int_adrp@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+
+    adrp x0, asm_math_var_x1_adrp@PAGE
+    add x0, x0, asm_math_var_x1_adrp@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+    adrp x20, op_arg0@PAGE
+    add x20, x20, op_arg0@PAGEOFF
+    ldr x0, [x20, x19, lsl #3]
+    mov x1, #1
+    bl _write_u64_fd
+    adrp x0, asm_math_var_x1_ldr@PAGE
+    add x0, x0, asm_math_var_x1_ldr@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+    adrp x20, op_arg0@PAGE
+    add x20, x20, op_arg0@PAGEOFF
+    ldr x0, [x20, x19, lsl #3]
+    mov x1, #1
+    bl _write_u64_fd
+    adrp x0, asm_store_var_suffix@PAGE
+    add x0, x0, asm_store_var_suffix@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+
+    adrp x0, asm_math_var_x10_adrp@PAGE
+    add x0, x0, asm_math_var_x10_adrp@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+    adrp x20, op_arg1@PAGE
+    add x20, x20, op_arg1@PAGEOFF
+    ldr x0, [x20, x19, lsl #3]
+    mov x1, #1
+    bl _write_u64_fd
+    adrp x0, asm_math_var_x10_ldr@PAGE
+    add x0, x0, asm_math_var_x10_ldr@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+    adrp x20, op_arg1@PAGE
+    add x20, x20, op_arg1@PAGEOFF
+    ldr x0, [x20, x19, lsl #3]
+    mov x1, #1
+    bl _write_u64_fd
+    adrp x0, asm_store_var_suffix@PAGE
+    add x0, x0, asm_store_var_suffix@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+
+    sub x22, x21, #17
+    mov x0, x22
+    bl _emit_math_opcode_x1
+
+    adrp x0, asm_print_stack_only@PAGE
+    add x0, x0, asm_print_stack_only@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+    b Lemit_op_done
+
+Lemit_op_store_math_target_imm:
+    adrp x0, asm_math_var_x11_adrp@PAGE
+    add x0, x0, asm_math_var_x11_adrp@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+    adrp x20, op_arg1@PAGE
+    add x20, x20, op_arg1@PAGEOFF
+    ldr x0, [x20, x19, lsl #3]
+    mov x1, #1
+    bl _write_u64_fd
+    adrp x0, asm_math_var_x11_ldr@PAGE
+    add x0, x0, asm_math_var_x11_ldr@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+    adrp x20, op_arg1@PAGE
+    add x20, x20, op_arg1@PAGEOFF
+    ldr x0, [x20, x19, lsl #3]
+    mov x1, #1
+    bl _write_u64_fd
+    adrp x0, asm_store_var_suffix@PAGE
+    add x0, x0, asm_store_var_suffix@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+
+    adrp x0, asm_store_val_adrp@PAGE
+    add x0, x0, asm_store_val_adrp@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+    mov x0, x19
+    mov x1, #1
+    bl _write_u64_fd
+    adrp x0, asm_store_val_ldr@PAGE
+    add x0, x0, asm_store_val_ldr@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+    mov x0, x19
+    mov x1, #1
+    bl _write_u64_fd
+    adrp x0, asm_store_var_suffix@PAGE
+    add x0, x0, asm_store_var_suffix@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+
+    sub x22, x21, #22
+    mov x0, x22
+    bl _emit_math_opcode_x11
+
+    adrp x0, asm_math_store_x11_adrp@PAGE
+    add x0, x0, asm_math_store_x11_adrp@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+    adrp x20, op_arg0@PAGE
+    add x20, x20, op_arg0@PAGEOFF
+    ldr x0, [x20, x19, lsl #3]
+    mov x1, #1
+    bl _write_u64_fd
+    adrp x0, asm_math_store_x11_str@PAGE
+    add x0, x0, asm_math_store_x11_str@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+    adrp x20, op_arg0@PAGE
+    add x20, x20, op_arg0@PAGEOFF
+    ldr x0, [x20, x19, lsl #3]
+    mov x1, #1
+    bl _write_u64_fd
+    adrp x0, asm_store_var_suffix@PAGE
+    add x0, x0, asm_store_var_suffix@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+    b Lemit_op_done
+
+Lemit_op_store_math_target_var:
+    adrp x0, asm_math_var_x11_adrp@PAGE
+    add x0, x0, asm_math_var_x11_adrp@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+    adrp x20, op_arg1@PAGE
+    add x20, x20, op_arg1@PAGEOFF
+    ldr x0, [x20, x19, lsl #3]
+    mov x1, #1
+    bl _write_u64_fd
+    adrp x0, asm_math_var_x11_ldr@PAGE
+    add x0, x0, asm_math_var_x11_ldr@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+    adrp x20, op_arg1@PAGE
+    add x20, x20, op_arg1@PAGEOFF
+    ldr x0, [x20, x19, lsl #3]
+    mov x1, #1
+    bl _write_u64_fd
+    adrp x0, asm_store_var_suffix@PAGE
+    add x0, x0, asm_store_var_suffix@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+
+    adrp x0, asm_math_var_x10_adrp@PAGE
+    add x0, x0, asm_math_var_x10_adrp@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+    adrp x20, op_arg2@PAGE
+    add x20, x20, op_arg2@PAGEOFF
+    ldr x0, [x20, x19, lsl #3]
+    mov x1, #1
+    bl _write_u64_fd
+    adrp x0, asm_math_var_x10_ldr@PAGE
+    add x0, x0, asm_math_var_x10_ldr@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+    adrp x20, op_arg2@PAGE
+    add x20, x20, op_arg2@PAGEOFF
+    ldr x0, [x20, x19, lsl #3]
+    mov x1, #1
+    bl _write_u64_fd
+    adrp x0, asm_store_var_suffix@PAGE
+    add x0, x0, asm_store_var_suffix@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+
+    sub x22, x21, #27
+    mov x0, x22
+    bl _emit_math_opcode_x11
+
+    adrp x0, asm_math_store_x11_adrp@PAGE
+    add x0, x0, asm_math_store_x11_adrp@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+    adrp x20, op_arg0@PAGE
+    add x20, x20, op_arg0@PAGEOFF
+    ldr x0, [x20, x19, lsl #3]
+    mov x1, #1
+    bl _write_u64_fd
+    adrp x0, asm_math_store_x11_str@PAGE
+    add x0, x0, asm_math_store_x11_str@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+    adrp x20, op_arg0@PAGE
+    add x20, x20, op_arg0@PAGEOFF
+    ldr x0, [x20, x19, lsl #3]
+    mov x1, #1
+    bl _write_u64_fd
+    adrp x0, asm_store_var_suffix@PAGE
+    add x0, x0, asm_store_var_suffix@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+    b Lemit_op_done
 
 Lemit_op_done:
     ldp x21, x22, [sp], #16
@@ -465,6 +757,10 @@ _emit_print_data:
     add x20, x20, print_values@PAGEOFF
     ldr x21, [x20, x19, lsl #3] // value (ptr for str)
 
+    adrp x0, asm_align_3@PAGE
+    add x0, x0, asm_align_3@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
     adrp x0, asm_data_value_prefix@PAGE
     add x0, x0, asm_data_value_prefix@PAGEOFF
     mov x1, #1
@@ -535,6 +831,10 @@ Lemit_var_slot_loop:
     ldr x22, [x19, x21, lsl #3]
     cmp x22, #2
     b.eq Lemit_var_slot_next
+    adrp x0, asm_align_3@PAGE
+    add x0, x0, asm_align_3@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
     adrp x0, asm_var_slot_prefix@PAGE
     add x0, x0, asm_var_slot_prefix@PAGEOFF
     mov x1, #1
@@ -574,11 +874,22 @@ _emit_store_data:
     adrp x20, op_kinds@PAGE
     add x20, x20, op_kinds@PAGEOFF
     ldr x21, [x20, x19, lsl #3]
-    cmp x21, #0
-    b.eq Lemit_store_data_done
-    cmp x21, #2
-    b.eq Lemit_store_data_done
+    cmp x21, #1
+    b.eq Lemit_store_data_emit
+    cmp x21, #3
+    b.lt Lemit_store_data_done
+    cmp x21, #12
+    b.le Lemit_store_data_emit
+    cmp x21, #23
+    b.lt Lemit_store_data_done
+    cmp x21, #27
+    b.gt Lemit_store_data_done
 
+Lemit_store_data_emit:
+    adrp x0, asm_align_3@PAGE
+    add x0, x0, asm_align_3@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
     adrp x0, asm_store_data_prefix@PAGE
     add x0, x0, asm_store_data_prefix@PAGEOFF
     mov x1, #1
@@ -590,8 +901,15 @@ _emit_store_data:
     add x0, x0, asm_data_value_mid@PAGEOFF
     mov x1, #1
     bl _write_cstr_fd
+    cmp x21, #23
+    b.lt Lemit_store_data_arg1
+    adrp x20, op_arg2@PAGE
+    add x20, x20, op_arg2@PAGEOFF
+    b Lemit_store_data_load
+Lemit_store_data_arg1:
     adrp x20, op_arg1@PAGE
     add x20, x20, op_arg1@PAGEOFF
+Lemit_store_data_load:
     ldr x0, [x20, x19, lsl #3]
     mov x1, #1
     bl _write_u64_fd

@@ -45,6 +45,15 @@ test: snc
 	./snc examples/runtime_exprs.sn > /tmp/snc_runtime_exprs.s
 	clang /tmp/snc_runtime_exprs.s -o /tmp/snc_runtime_exprs
 	/tmp/snc_runtime_exprs
+	./snc examples/runtime_var_math.sn > /tmp/snc_runtime_var_math.s
+	clang /tmp/snc_runtime_var_math.s -o /tmp/snc_runtime_var_math
+	/tmp/snc_runtime_var_math
+	./snc examples/runtime_target_math.sn > /tmp/snc_runtime_target_math.s
+	clang /tmp/snc_runtime_target_math.s -o /tmp/snc_runtime_target_math
+	/tmp/snc_runtime_target_math
+	./snc examples/spec_batch.sn > /tmp/snc_spec_batch.s
+	clang /tmp/snc_spec_batch.s -o /tmp/snc_spec_batch
+	/tmp/snc_spec_batch
 
 clean:
 	rm -f snc src/*.o

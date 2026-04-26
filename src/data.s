@@ -33,6 +33,10 @@
 .global kw_or
 .global kw_not
 .global kw_str
+.global kw_byte
+.global kw_match
+.global kw_default
+.global kw_use
 .global asm_header
 .global asm_print_fmt_adrp
 .global asm_print_val_adrp
@@ -48,6 +52,7 @@
 .global asm_data_value_mid_str
 .global asm_data_value_suffix
 .global asm_data_value_suffix_str
+.global asm_align_3
 .global asm_print_fmt_int_adrp
 .global asm_print_fmt_str_adrp
 .global asm_store_val_adrp
@@ -61,6 +66,8 @@
 .global asm_math_var_x11_ldr
 .global asm_math_var_x1_adrp
 .global asm_math_var_x1_ldr
+.global asm_math_var_x10_adrp
+.global asm_math_var_x10_ldr
 .global asm_math_store_x11_adrp
 .global asm_math_store_x11_str
 .global asm_math_add_x11_x10
@@ -100,6 +107,7 @@
 .global op_kinds
 .global op_arg0
 .global op_arg1
+.global op_arg2
 
 msg_usage:         .asciz "usage: ./snc <source.sn>\n"
 msg_open_error:    .asciz "error: could not open "
@@ -135,6 +143,10 @@ kw_and:            .asciz "and"
 kw_or:             .asciz "or"
 kw_not:            .asciz "not"
 kw_str:            .asciz "str"
+kw_byte:           .asciz "byte"
+kw_match:          .asciz "match"
+kw_default:        .asciz "default"
+kw_use:            .asciz "use"
 asm_header:
     .asciz ".global _main\n.align 4\n.extern _printf\n\n.text\n_main:\n    stp x29, x30, [sp, #-16]!\n    mov x29, sp\n"
 asm_print_fmt_int_adrp:
@@ -177,6 +189,10 @@ asm_math_var_x1_adrp:
     .asciz "    adrp x11, var_slot_"
 asm_math_var_x1_ldr:
     .asciz "@PAGE\n    ldr x1, [x11, var_slot_"
+asm_math_var_x10_adrp:
+    .asciz "    adrp x12, var_slot_"
+asm_math_var_x10_ldr:
+    .asciz "@PAGE\n    ldr x10, [x12, var_slot_"
 asm_math_store_x11_adrp:
     .asciz "    adrp x12, var_slot_"
 asm_math_store_x11_str:
@@ -213,6 +229,8 @@ asm_data_value_suffix:
     .asciz "\n"
 asm_data_value_suffix_str:
     .asciz "\"\n"
+asm_align_3:
+    .asciz ".align 3\n"
 asm_var_slot_prefix:
     .asciz "var_slot_"
 asm_store_data_prefix:
@@ -245,3 +263,4 @@ print_types:    .space 2048
 op_kinds:       .space 4096
 op_arg0:        .space 4096
 op_arg1:        .space 4096
+op_arg2:        .space 4096

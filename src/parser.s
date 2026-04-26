@@ -67,6 +67,13 @@ _parse_statement:
 
     mov x0, x19
     mov x1, x20
+    adrp x2, kw_byte@PAGE
+    add x2, x2, kw_byte@PAGEOFF
+    bl _match_cstr_span
+    cbnz x0, Lstmt_byte
+
+    mov x0, x19
+    mov x1, x20
     adrp x2, kw_const@PAGE
     add x2, x2, kw_const@PAGEOFF
     bl _match_cstr_span
@@ -99,6 +106,20 @@ _parse_statement:
     add x2, x2, kw_str@PAGEOFF
     bl _match_cstr_span
     cbnz x0, Lstmt_str
+
+    mov x0, x19
+    mov x1, x20
+    adrp x2, kw_match@PAGE
+    add x2, x2, kw_match@PAGEOFF
+    bl _match_cstr_span
+    cbnz x0, Lstmt_match
+
+    mov x0, x19
+    mov x1, x20
+    adrp x2, kw_use@PAGE
+    add x2, x2, kw_use@PAGEOFF
+    bl _match_cstr_span
+    cbnz x0, Lstmt_use
 
     b Lstmt_assign
 
@@ -224,6 +245,44 @@ Lstmt_bool:
     mov x0, #0
     b Lstmt_return
 
+Lstmt_byte:
+    bl _skip_whitespace
+    bl _parse_identifier
+    cbz x0, Lstmt_need_name
+    mov x19, x0
+    mov x20, x1
+
+    bl _skip_whitespace
+    mov w0, #'='
+    bl _expect_char
+    cbz x0, Lstmt_fail
+
+    bl _parse_expr_value
+    cbz x0, Lstmt_fail
+    mov x21, x1
+
+    bl _consume_optional_semicolon
+
+    mov x0, x19
+    mov x1, x20
+    mov x2, x21
+    mov x3, #0
+    mov x4, #3 // type byte
+    mov x5, #0
+    bl _define_variable
+    cbnz x0, Lstmt_fail
+    mov x0, x19
+    mov x1, x20
+    bl _lookup_variable
+    cbz x0, Lstmt_fail
+    mov x0, x4
+    mov x1, x21
+    bl _record_store_variable
+    cbnz x0, Lstmt_fail
+
+    mov x0, #0
+    b Lstmt_return
+
 Lstmt_str:
     bl _skip_whitespace
     bl _parse_identifier
@@ -276,6 +335,13 @@ Lstmt_const:
     bl _match_cstr_span
     cbnz x0, Lstmt_const_bool
 
+    mov x0, x21
+    mov x1, x22
+    adrp x2, kw_str@PAGE
+    add x2, x2, kw_str@PAGEOFF
+    bl _match_cstr_span
+    cbnz x0, Lstmt_const_str
+
     adrp x0, msg_expected_type@PAGE
     add x0, x0, msg_expected_type@PAGEOFF
     bl _report_error_prefix
@@ -297,6 +363,7 @@ Lstmt_const_int:
     bl _parse_expr_value
     cbz x0, Lstmt_fail
     mov x21, x1
+    mov x24, #0
     b Lstmt_const_store
 
 Lstmt_const_bool:
@@ -315,6 +382,26 @@ Lstmt_const_bool:
     bl _parse_condition_value
     cbz x0, Lstmt_fail
     mov x21, x1
+    mov x24, #0
+    b Lstmt_const_store
+
+Lstmt_const_str:
+    mov x22, #2
+    bl _skip_whitespace
+    bl _parse_identifier
+    cbz x0, Lstmt_need_name
+    mov x19, x0
+    mov x20, x1
+
+    bl _skip_whitespace
+    mov w0, #'='
+    bl _expect_char
+    cbz x0, Lstmt_fail
+
+    bl _parse_string_literal
+    cbz x0, Lstmt_fail
+    mov x21, x1
+    mov x24, x2
 
 Lstmt_const_store:
     bl _consume_optional_semicolon
@@ -324,7 +411,7 @@ Lstmt_const_store:
     mov x2, x21
     mov x3, #1
     mov x4, x22
-    mov x5, #0
+    mov x5, x24
     bl _define_variable
     cbnz x0, Lstmt_fail
     cmp x22, #2
@@ -348,7 +435,7 @@ Lstmt_print:
     cmp w0, #'('
     b.ne Lstmt_print_plain
     bl _advance_char
-    bl _try_parse_runtime_var_imm_expr
+    bl _try_parse_runtime_var_bin_expr
     cbnz x0, Lstmt_print_runtime_expr
     bl _parse_expr_value
     cbz x0, Lstmt_fail
@@ -363,7 +450,7 @@ Lstmt_print:
     b Lstmt_print_record
 
 Lstmt_print_plain:
-    bl _try_parse_runtime_var_imm_expr
+    bl _try_parse_runtime_var_bin_expr
     cbnz x0, Lstmt_print_runtime_expr
     bl _parse_expr_value
     cbz x0, Lstmt_fail
@@ -374,7 +461,8 @@ Lstmt_print_plain:
     b Lstmt_print_record
 
 Lstmt_print_runtime_expr:
-    // x1=var idx, x2=op code 1..5, x3=immediate
+    // x1=lhs var idx, x2=op code 1..5, x3=rhs value/index, x4=rhs kind (0 imm, 1 var)
+    cbnz x4, Lstmt_print_runtime_expr_record
     cmp x2, #4
     b.eq Lstmt_print_runtime_expr_check_zero
     cmp x2, #5
@@ -382,7 +470,12 @@ Lstmt_print_runtime_expr:
 Lstmt_print_runtime_expr_check_zero:
     cbz x3, Lstmt_assign_divide_zero
 Lstmt_print_runtime_expr_record:
+    cbz x4, Lstmt_print_runtime_expr_record_imm
+    add x0, x2, #17
+    b Lstmt_print_runtime_expr_record_common
+Lstmt_print_runtime_expr_record_imm:
     add x0, x2, #7
+Lstmt_print_runtime_expr_record_common:
     mov x2, x3
     mov x1, x1
     bl _record_operation
@@ -476,6 +569,18 @@ Lstmt_while:
     mov x0, #0
     b Lstmt_return
 
+Lstmt_match:
+    bl _parse_match_statement_after_keyword
+    cbnz x0, Lstmt_fail
+    mov x0, #0
+    b Lstmt_return
+
+Lstmt_use:
+    bl _parse_use_statement_after_keyword
+    cbnz x0, Lstmt_fail
+    mov x0, #0
+    b Lstmt_return
+
 Lstmt_assign:
     bl _skip_whitespace
     bl _peek_char
@@ -493,7 +598,7 @@ Lstmt_assign:
 
 Lstmt_assign_set:
     bl _advance_char
-    bl _try_parse_runtime_var_imm_expr
+    bl _try_parse_runtime_var_bin_expr
     cbnz x0, Lstmt_assign_runtime_expr
     bl _parse_expr_value
     cbz x0, Lstmt_fail
@@ -501,10 +606,12 @@ Lstmt_assign_set:
     b Lstmt_assign_store
 
 Lstmt_assign_runtime_expr:
-    // only record runtime form when assigning back to same variable
+    // record runtime form for target = lhs op rhs, while keeping compile-time state updated too
     mov x21, x1
     mov x22, x2
     mov x23, x3
+    mov x24, x4
+    cbnz x24, Lstmt_assign_runtime_expr_lookup
     cmp x22, #4
     b.eq Lstmt_assign_runtime_expr_check_zero
     cmp x22, #5
@@ -516,12 +623,66 @@ Lstmt_assign_runtime_expr_lookup:
     mov x1, x20
     bl _lookup_variable
     cbz x0, Lstmt_fail
-    cmp x4, x21
-    b.ne Lstmt_assign_runtime_fallback
-    add x0, x22, #2
-    mov x1, x21
-    mov x2, x23
-    bl _record_operation
+    mov x27, x4
+
+    adrp x9, var_values@PAGE
+    add x9, x9, var_values@PAGEOFF
+    ldr x25, [x9, x21, lsl #3]
+    mov x26, x23
+    cbz x24, Lstmt_assign_runtime_rhs_ready
+    ldr x26, [x9, x23, lsl #3]
+Lstmt_assign_runtime_rhs_ready:
+    cmp x22, #1
+    b.eq Lstmt_assign_runtime_eval_add
+    cmp x22, #2
+    b.eq Lstmt_assign_runtime_eval_sub
+    cmp x22, #3
+    b.eq Lstmt_assign_runtime_eval_mul
+    cmp x22, #4
+    b.eq Lstmt_assign_runtime_eval_div
+    cmp x22, #5
+    b.eq Lstmt_assign_runtime_eval_mod
+    b Lstmt_fail
+
+Lstmt_assign_runtime_eval_add:
+    add x28, x25, x26
+    b Lstmt_assign_runtime_update
+Lstmt_assign_runtime_eval_sub:
+    sub x28, x25, x26
+    b Lstmt_assign_runtime_update
+Lstmt_assign_runtime_eval_mul:
+    mul x28, x25, x26
+    b Lstmt_assign_runtime_update
+Lstmt_assign_runtime_eval_div:
+    cbz x26, Lstmt_assign_divide_zero
+    udiv x28, x25, x26
+    b Lstmt_assign_runtime_update
+Lstmt_assign_runtime_eval_mod:
+    cbz x26, Lstmt_assign_divide_zero
+    udiv x9, x25, x26
+    msub x28, x9, x26, x25
+
+Lstmt_assign_runtime_update:
+    mov x0, x19
+    mov x1, x20
+    mov x2, x28
+    bl _set_variable
+    cbnz x0, Lstmt_fail
+
+    cbz x24, Lstmt_assign_runtime_expr_record_imm
+    add x0, x22, #27
+    mov x1, x27
+    mov x2, x21
+    mov x3, x23
+    bl _record_operation3
+    b Lstmt_assign_runtime_record_done
+Lstmt_assign_runtime_expr_record_imm:
+    add x0, x22, #22
+    mov x1, x27
+    mov x2, x21
+    mov x3, x23
+    bl _record_operation3
+Lstmt_assign_runtime_record_done:
     cbnz x0, Lstmt_fail
     bl _consume_optional_semicolon
     mov x0, #0
@@ -533,6 +694,12 @@ Lstmt_assign_runtime_fallback:
     bl _lookup_variable
     cbz x0, Lstmt_fail
     mov x25, x1
+    mov x26, x23
+    cbz x24, Lstmt_assign_runtime_fallback_rhs_ready
+    adrp x9, var_values@PAGE
+    add x9, x9, var_values@PAGEOFF
+    ldr x26, [x9, x23, lsl #3]
+Lstmt_assign_runtime_fallback_rhs_ready:
     cmp x22, #1
     b.eq Lstmt_assign_rt_add
     cmp x22, #2
@@ -546,22 +713,22 @@ Lstmt_assign_runtime_fallback:
     b Lstmt_fail
 
 Lstmt_assign_rt_add:
-    add x21, x25, x23
+    add x21, x25, x26
     b Lstmt_assign_store
 Lstmt_assign_rt_sub:
-    sub x21, x25, x23
+    sub x21, x25, x26
     b Lstmt_assign_store
 Lstmt_assign_rt_mul:
-    mul x21, x25, x23
+    mul x21, x25, x26
     b Lstmt_assign_store
 Lstmt_assign_rt_div:
-    cbz x23, Lstmt_assign_divide_zero
-    udiv x21, x25, x23
+    cbz x26, Lstmt_assign_divide_zero
+    udiv x21, x25, x26
     b Lstmt_assign_store
 Lstmt_assign_rt_mod:
-    cbz x23, Lstmt_assign_divide_zero
-    udiv x9, x25, x23
-    msub x21, x9, x23, x25
+    cbz x26, Lstmt_assign_divide_zero
+    udiv x9, x25, x26
+    msub x21, x9, x26, x25
     b Lstmt_assign_store
 
 Lstmt_assign_add:
@@ -696,12 +863,13 @@ Lstmt_return:
     ldp x29, x30, [sp], #16
     ret
 
-_try_parse_runtime_var_imm_expr:
+_try_parse_runtime_var_bin_expr:
     stp x29, x30, [sp, #-16]!
     mov x29, sp
     stp x19, x20, [sp, #-16]!
     stp x21, x22, [sp, #-16]!
     stp x23, x24, [sp, #-16]!
+    stp x25, x26, [sp, #-16]!
 
     adrp x9, cursor_pos@PAGE
     add x9, x9, cursor_pos@PAGEOFF
@@ -753,12 +921,47 @@ Lrt_expr_mod:
 
 Lrt_expr_take_op:
     bl _advance_char
+    bl _skip_whitespace
     bl _parse_number
-    cbz x0, Lrt_expr_restore_fail
+    cbz x0, Lrt_expr_try_var_rhs
     mov x0, #1
     mov x2, x24
     mov x3, x1
+    mov x4, #0
     mov x1, x23
+    b Lrt_expr_finish_check
+
+Lrt_expr_try_var_rhs:
+    bl _parse_identifier
+    cbz x0, Lrt_expr_restore_fail
+    mov x25, x0
+    mov x26, x1
+    mov x0, x25
+    mov x1, x26
+    bl _lookup_variable
+    cbz x0, Lrt_expr_restore_fail
+    cmp x2, #2
+    b.eq Lrt_expr_restore_fail
+    mov x0, #1
+    mov x2, x24
+    mov x3, x4
+    mov x4, #1
+    mov x1, x23
+    b Lrt_expr_finish_check
+
+Lrt_expr_finish_check:
+    bl _skip_whitespace
+    bl _peek_char
+    cmp w0, #'+'
+    b.eq Lrt_expr_restore_fail
+    cmp w0, #'-'
+    b.eq Lrt_expr_restore_fail
+    cmp w0, #'*'
+    b.eq Lrt_expr_restore_fail
+    cmp w0, #'/'
+    b.eq Lrt_expr_restore_fail
+    cmp w0, #'%'
+    b.eq Lrt_expr_restore_fail
     b Lrt_expr_return
 
 Lrt_expr_restore_fail:
@@ -771,6 +974,7 @@ Lrt_expr_restore_fail:
     mov x0, #0
 
 Lrt_expr_return:
+    ldp x25, x26, [sp], #16
     ldp x23, x24, [sp], #16
     ldp x21, x22, [sp], #16
     ldp x19, x20, [sp], #16
@@ -1021,6 +1225,218 @@ Lwhile_return:
     ldp x23, x24, [sp], #16
     ldp x21, x22, [sp], #16
     ldp x19, x20, [sp], #16
+    ldp x29, x30, [sp], #16
+    ret
+
+_parse_use_statement_after_keyword:
+    stp x29, x30, [sp, #-16]!
+    mov x29, sp
+
+    bl _skip_whitespace
+    bl _parse_identifier
+    cbz x0, Luse_fail
+
+Luse_loop:
+    bl _skip_whitespace
+    bl _peek_char
+    cmp w0, #'.'
+    b.ne Luse_done
+    bl _advance_char
+    bl _parse_identifier
+    cbz x0, Luse_fail
+    b Luse_loop
+
+Luse_done:
+    bl _consume_optional_semicolon
+    mov x0, #0
+    ldp x29, x30, [sp], #16
+    ret
+
+Luse_fail:
+    adrp x0, msg_expected_name@PAGE
+    add x0, x0, msg_expected_name@PAGEOFF
+    bl _report_error_prefix
+    mov x0, #1
+    ldp x29, x30, [sp], #16
+    ret
+
+_parse_match_statement_after_keyword:
+    stp x29, x30, [sp, #-16]!
+    mov x29, sp
+    stp x19, x20, [sp, #-16]!
+    stp x21, x22, [sp, #-16]!
+    stp x23, x24, [sp, #-16]!
+    stp x25, x26, [sp, #-16]!
+    stp x27, x28, [sp, #-16]!
+
+    bl _skip_whitespace
+    mov w0, #'('
+    bl _expect_char
+    cbz x0, Lmatch_fail
+
+    bl _parse_match_case_value
+    cbz x0, Lmatch_fail
+    mov x19, x1
+    mov x20, x2
+    mov x21, x3
+
+    bl _skip_whitespace
+    mov w0, #')'
+    bl _expect_char
+    cbz x0, Lmatch_fail
+    bl _skip_whitespace
+    mov w0, #'{'
+    bl _expect_char
+    cbz x0, Lmatch_fail
+
+    mov x22, #0 // matched already?
+
+Lmatch_case_loop:
+    bl _skip_whitespace
+    bl _peek_char
+    cmp w0, #'}'
+    b.eq Lmatch_done
+    cbz w0, Lmatch_unclosed
+
+    adrp x0, kw_default@PAGE
+    add x0, x0, kw_default@PAGEOFF
+    bl _consume_keyword
+    cbnz x0, Lmatch_default
+
+    bl _parse_match_case_value
+    cbz x0, Lmatch_fail
+    mov x23, x1
+    mov x24, x2
+    mov x25, x3
+
+    mov x26, #0
+    cmp x20, #2
+    b.eq Lmatch_case_str
+    cmp x24, #2
+    b.eq Lmatch_case_value_checked
+    cmp x19, x23
+    cset x26, eq
+    b Lmatch_case_value_checked
+
+Lmatch_case_str:
+    cmp x24, #2
+    b.ne Lmatch_case_value_checked
+    cmp x21, x25
+    b.ne Lmatch_case_value_checked
+    mov x0, x19
+    mov x1, x21
+    mov x2, x23
+    bl _match_span_span
+    mov x26, x0
+
+Lmatch_case_value_checked:
+    bl _skip_whitespace
+    mov w0, #'{'
+    bl _expect_char
+    cbz x0, Lmatch_fail
+
+    cbnz x22, Lmatch_skip_case
+    cbz x26, Lmatch_skip_case
+    mov x22, #1
+
+Lmatch_exec_case_loop:
+    bl _skip_whitespace
+    bl _peek_char
+    cmp w0, #'}'
+    b.eq Lmatch_exec_case_done
+    cbz w0, Lmatch_unclosed
+    bl _parse_statement
+    cbnz x0, Lmatch_fail
+    b Lmatch_exec_case_loop
+
+Lmatch_exec_case_done:
+    bl _advance_char
+    b Lmatch_case_loop
+
+Lmatch_skip_case:
+    bl _skip_block_contents
+    cbnz x0, Lmatch_fail
+    b Lmatch_case_loop
+
+Lmatch_default:
+    bl _skip_whitespace
+    mov w0, #'{'
+    bl _expect_char
+    cbz x0, Lmatch_fail
+    cbnz x22, Lmatch_skip_default
+    mov x22, #1
+
+Lmatch_exec_default_loop:
+    bl _skip_whitespace
+    bl _peek_char
+    cmp w0, #'}'
+    b.eq Lmatch_exec_default_done
+    cbz w0, Lmatch_unclosed
+    bl _parse_statement
+    cbnz x0, Lmatch_fail
+    b Lmatch_exec_default_loop
+
+Lmatch_exec_default_done:
+    bl _advance_char
+    b Lmatch_case_loop
+
+Lmatch_skip_default:
+    bl _skip_block_contents
+    cbnz x0, Lmatch_fail
+    b Lmatch_case_loop
+
+Lmatch_done:
+    bl _advance_char
+    mov x0, #0
+    b Lmatch_return
+
+Lmatch_unclosed:
+    adrp x0, msg_expected_char@PAGE
+    add x0, x0, msg_expected_char@PAGEOFF
+    bl _report_error_prefix
+    adrp x0, close_brace_char@PAGE
+    add x0, x0, close_brace_char@PAGEOFF
+    mov x1, #1
+    mov x2, #2
+    bl _write_buffer_fd
+    bl _write_newline_stderr
+
+Lmatch_fail:
+    mov x0, #1
+
+Lmatch_return:
+    ldp x27, x28, [sp], #16
+    ldp x25, x26, [sp], #16
+    ldp x23, x24, [sp], #16
+    ldp x21, x22, [sp], #16
+    ldp x19, x20, [sp], #16
+    ldp x29, x30, [sp], #16
+    ret
+
+_parse_match_case_value:
+    stp x29, x30, [sp, #-16]!
+    mov x29, sp
+
+    bl _skip_whitespace
+    bl _peek_char
+    cmp w0, #'"'
+    b.eq Lmatch_case_string
+    bl _parse_expr_value
+    cbz x0, Lmatch_case_fail
+    ldp x29, x30, [sp], #16
+    ret
+
+Lmatch_case_string:
+    bl _parse_string_literal
+    cbz x0, Lmatch_case_fail
+    mov x3, x2
+    mov x2, #2
+    mov x0, #1
+    ldp x29, x30, [sp], #16
+    ret
+
+Lmatch_case_fail:
+    mov x0, #0
     ldp x29, x30, [sp], #16
     ret
 
@@ -1292,7 +1708,7 @@ _parse_term_value:
     stp x21, x22, [sp, #-16]!
     stp x23, x24, [sp, #-16]!
 
-    bl _parse_primary_value
+    bl _parse_power_value
     cbz x0, Lterm_fail
     mov x19, x1
     mov x20, x2
@@ -1312,7 +1728,7 @@ Lterm_loop:
 
 Lterm_multiply:
     bl _advance_char
-    bl _parse_primary_value
+    bl _parse_power_value
     cbz x0, Lterm_fail
     mul x19, x19, x1
     mov x20, #0
@@ -1322,7 +1738,7 @@ Lterm_multiply:
 
 Lterm_divide:
     bl _advance_char
-    bl _parse_primary_value
+    bl _parse_power_value
     cbz x0, Lterm_fail
     cbz x1, Lterm_divide_zero
     udiv x19, x19, x1
@@ -1333,7 +1749,7 @@ Lterm_divide:
 
 Lterm_modulo:
     bl _advance_char
-    bl _parse_primary_value
+    bl _parse_power_value
     cbz x0, Lterm_fail
     cbz x1, Lterm_divide_zero
     udiv x9, x19, x1
@@ -1362,6 +1778,86 @@ Lterm_fail:
     mov x0, #0
 
 Lterm_return:
+    ldp x23, x24, [sp], #16
+    ldp x21, x22, [sp], #16
+    ldp x19, x20, [sp], #16
+    ldp x29, x30, [sp], #16
+    ret
+
+_parse_power_value:
+    stp x29, x30, [sp, #-16]!
+    mov x29, sp
+    stp x19, x20, [sp, #-16]!
+    stp x21, x22, [sp, #-16]!
+    stp x23, x24, [sp, #-16]!
+
+    bl _parse_primary_value
+    cbz x0, Lpow_fail
+    mov x19, x1
+    mov x20, x2
+    mov x21, x3
+    mov x24, x4
+
+Lpow_loop:
+    bl _skip_whitespace
+    adrp x9, cursor_pos@PAGE
+    add x9, x9, cursor_pos@PAGEOFF
+    ldr x22, [x9]
+    adrp x9, current_line@PAGE
+    add x9, x9, current_line@PAGEOFF
+    ldr x23, [x9]
+    bl _peek_char
+    cmp w0, #'*'
+    b.ne Lpow_done
+    bl _advance_char
+    bl _peek_char
+    cmp w0, #'*'
+    b.ne Lpow_restore_done
+    bl _advance_char
+    bl _parse_primary_value
+    cbz x0, Lpow_fail
+    mov x22, x1
+    mov x23, #1
+    cbz x22, Lpow_zero_exp
+
+Lpow_mul_loop:
+    mul x23, x23, x19
+    sub x22, x22, #1
+    cbnz x22, Lpow_mul_loop
+    mov x19, x23
+    mov x20, #0
+    mov x21, #0
+    mov x24, #-1
+    b Lpow_loop
+
+Lpow_zero_exp:
+    mov x19, #1
+    mov x20, #0
+    mov x21, #0
+    mov x24, #-1
+    b Lpow_loop
+
+Lpow_restore_done:
+    adrp x9, cursor_pos@PAGE
+    add x9, x9, cursor_pos@PAGEOFF
+    str x22, [x9]
+    adrp x9, current_line@PAGE
+    add x9, x9, current_line@PAGEOFF
+    str x23, [x9]
+    b Lpow_done
+
+Lpow_done:
+    mov x0, #1
+    mov x1, x19
+    mov x2, x20
+    mov x3, x21
+    mov x4, x24
+    b Lpow_return
+
+Lpow_fail:
+    mov x0, #0
+
+Lpow_return:
     ldp x23, x24, [sp], #16
     ldp x21, x22, [sp], #16
     ldp x19, x20, [sp], #16

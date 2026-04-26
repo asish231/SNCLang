@@ -1,0 +1,12 @@
+fn main() {
+    int x = 5
+    int y = 3
+    int z = 20
+
+    print(x + y)
+    print(z - y)
+    x = x + y
+    print(x)
+    z = z / y
+    print(z)
+}

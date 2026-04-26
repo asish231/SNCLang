@@ -1,0 +1,33 @@
+use std.io
+
+const str APP = "SNlang"
+byte flag = 4
+int power = 2 ** 5
+
+print(APP)
+print(flag)
+print(power)
+
+match (flag) {
+    1 {
+        print(100)
+    }
+    4 {
+        print(400)
+    }
+    default {
+        print(999)
+    }
+}
+
+match ("hi") {
+    "hello" {
+        print(1)
+    }
+    "hi" {
+        print(2)
+    }
+    default {
+        print(3)
+    }
+}

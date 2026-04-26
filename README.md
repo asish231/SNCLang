@@ -61,12 +61,20 @@ Supported today:
 - `else if (...) { ... }`
 - `while (...) { ... }`
 - `bool`, `true`, and `false`
+- `byte`
 - `str` string variables
+- `const str`
 - string literals in `print(...)`
+- `use module.path` syntax
+- `match (...) { ... default { ... } }` with compile-time execution
 - runtime slots for `int` / `bool` declarations and assignments
 - runtime `print(var)` loads for `int` / `bool`
 - runtime arithmetic for `print(var op number)` where `op` is `+ - * / %`
 - runtime arithmetic for `x = x op number` where `op` is `+ - * / %`
+- runtime arithmetic for `print(var op var)` where `op` is `+ - * / %`
+- runtime arithmetic for `x = x op var` where `op` is `+ - * / %`
+- runtime target assignments like `out = x + y` and `out = x + 7`
+- exponent with `**`
 - `const int` and `const bool`
 - reassignment with `=`
 - assignment shortcuts with `+=`, `-=`, `*=`, and `/=`
