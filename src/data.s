@@ -16,6 +16,10 @@
 .global msg_const_assign
 .global msg_expected_type
 .global msg_expected_list
+.global msg_type_mismatch
+.global msg_invalid_decimal
+.global msg_decimal_scale
+.global msg_unsupported_decimal
 .global msg_too_many_vars
 .global msg_too_many_prints
 .global msg_too_many_ops
@@ -41,6 +45,8 @@
 .global kw_not
 .global kw_str
 .global kw_byte
+.global kw_dec
+.global kw_cast
 .global kw_match
 .global kw_default
 .global kw_use
@@ -149,9 +155,11 @@
 .global fn_body_lines
 .global fn_param_counts
 .global fn_param_types
+.global fn_param_lengths
 .global fn_param_name_ptrs
 .global fn_param_name_lens
 .global fn_return_types
+.global fn_return_decl_lengths
 .global fn_return_value
 .global fn_return_length
 .global fn_return_flag
@@ -174,6 +182,10 @@ msg_divide_zero:   .asciz "error: division by zero on "
 msg_const_assign:  .asciz "error: cannot assign to const on "
 msg_expected_type: .asciz "error: expected type on "
 msg_expected_list: .asciz "error: expected list on "
+msg_type_mismatch: .asciz "error: type mismatch on "
+msg_invalid_decimal: .asciz "error: invalid decimal literal on "
+msg_decimal_scale: .asciz "error: decimal scale mismatch on "
+msg_unsupported_decimal: .asciz "error: unsupported decimal operation on "
 msg_too_many_vars: .asciz "error: too many variables\n"
 msg_too_many_prints: .asciz "error: too many print statements\n"
 msg_too_many_ops:  .asciz "error: too many operations\n"
@@ -199,6 +211,8 @@ kw_or:             .asciz "or"
 kw_not:            .asciz "not"
 kw_str:            .asciz "str"
 kw_byte:           .asciz "byte"
+kw_dec:            .asciz "dec"
+kw_cast:           .asciz "cast"
 kw_match:          .asciz "match"
 kw_default:        .asciz "default"
 kw_use:            .asciz "use"
@@ -371,8 +385,10 @@ fn_body_lines:  .space 256
 fn_param_counts: .space 256
 fn_return_types: .space 256
 fn_param_types: .space 1024       // 32 fns * 4 params * 8 bytes
+fn_param_lengths: .space 1024
 fn_param_name_ptrs: .space 1024
 fn_param_name_lens: .space 1024
+fn_return_decl_lengths: .space 256
 fn_return_value: .space 8
 fn_return_length: .space 8
 fn_return_flag:  .space 8

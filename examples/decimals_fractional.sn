@@ -1,0 +1,4 @@
+dec(2) fraction = 1.02
+print(fraction)
+dec(3) frac3 = 0.005
+print(frac3)

@@ -157,6 +157,13 @@ _parse_statement:
 
     mov x0, x19
     mov x1, x20
+    adrp x2, kw_dec@PAGE
+    add x2, x2, kw_dec@PAGEOFF
+    bl _match_cstr_span
+    cbnz x0, Lstmt_dec
+
+    mov x0, x19
+    mov x1, x20
     adrp x2, kw_const@PAGE
     add x2, x2, kw_const@PAGEOFF
     bl _match_cstr_span
@@ -265,6 +272,8 @@ Lstmt_let:
 
     bl _parse_expr_value
     cbz x0, Lstmt_fail
+    cmp x2, #6
+    b.eq Lstmt_type_mismatch
     mov x21, x1
 
     bl _consume_optional_semicolon
@@ -302,6 +311,8 @@ Lstmt_int:
 
     bl _parse_expr_value
     cbz x0, Lstmt_fail
+    cmp x2, #6
+    b.eq Lstmt_type_mismatch
     mov x21, x1
 
     bl _consume_optional_semicolon
@@ -377,6 +388,8 @@ Lstmt_byte:
 
     bl _parse_expr_value
     cbz x0, Lstmt_fail
+    cmp x2, #6
+    b.eq Lstmt_type_mismatch
     mov x21, x1
 
     bl _consume_optional_semicolon
@@ -387,6 +400,52 @@ Lstmt_byte:
     mov x3, #0
     mov x4, #3 // type byte
     mov x5, #0
+    bl _define_variable
+    cbnz x0, Lstmt_fail
+    mov x0, x19
+    mov x1, x20
+    bl _lookup_variable
+    cbz x0, Lstmt_fail
+    mov x0, x4
+    mov x1, x21
+    bl _record_store_variable
+    cbnz x0, Lstmt_fail
+
+    mov x0, #0
+    b Lstmt_return
+
+Lstmt_dec:
+    bl _parse_decimal_type_suffix
+    cbz x0, Lstmt_fail
+    mov x23, x1 // scale
+
+    bl _skip_whitespace
+    bl _parse_identifier
+    cbz x0, Lstmt_need_name
+    mov x19, x0
+    mov x20, x1
+
+    bl _skip_whitespace
+    mov w0, #'='
+    bl _expect_char
+    cbz x0, Lstmt_fail
+
+    bl _parse_expr_value
+    cbz x0, Lstmt_fail
+    cmp x2, #6
+    b.ne Lstmt_type_mismatch
+    cmp x3, x23
+    b.ne Lstmt_decimal_scale_error
+    mov x21, x1
+
+    bl _consume_optional_semicolon
+
+    mov x0, x19
+    mov x1, x20
+    mov x2, x21
+    mov x3, #0
+    mov x4, #6 // type dec
+    mov x5, x23 // scale
     bl _define_variable
     cbnz x0, Lstmt_fail
     mov x0, x19
@@ -539,6 +598,13 @@ Lstmt_const:
     bl _match_cstr_span
     cbnz x0, Lstmt_const_str
 
+    mov x0, x21
+    mov x1, x22
+    adrp x2, kw_dec@PAGE
+    add x2, x2, kw_dec@PAGEOFF
+    bl _match_cstr_span
+    cbnz x0, Lstmt_const_dec
+
     adrp x0, msg_expected_type@PAGE
     add x0, x0, msg_expected_type@PAGEOFF
     bl _report_error_prefix
@@ -601,6 +667,31 @@ Lstmt_const_str:
     b.ne Lstmt_fail
     mov x21, x1
     mov x24, x3
+    b Lstmt_const_store
+
+Lstmt_const_dec:
+    mov x22, #6
+    bl _parse_decimal_type_suffix
+    cbz x0, Lstmt_fail
+    mov x24, x1
+    bl _skip_whitespace
+    bl _parse_identifier
+    cbz x0, Lstmt_need_name
+    mov x19, x0
+    mov x20, x1
+
+    bl _skip_whitespace
+    mov w0, #'='
+    bl _expect_char
+    cbz x0, Lstmt_fail
+
+    bl _parse_expr_value
+    cbz x0, Lstmt_fail
+    cmp x2, #6
+    b.ne Lstmt_type_mismatch
+    cmp x3, x24
+    b.ne Lstmt_decimal_scale_error
+    mov x21, x1
 
 Lstmt_const_store:
     bl _consume_optional_semicolon
@@ -695,6 +786,8 @@ Lstmt_print_record:
     cmp x24, #-1
     b.eq Lstmt_print_immediate
     cmp x22, #2
+    b.eq Lstmt_print_immediate
+    cmp x22, #6
     b.eq Lstmt_print_immediate
     mov x0, x24
     mov x1, x22
@@ -850,7 +943,11 @@ Lstmt_assign_set:
     cbnz x0, Lstmt_assign_runtime_expr
     bl _parse_expr_value
     cbz x0, Lstmt_fail
+    cmp x2, #6
+    b.eq Lstmt_type_mismatch
     mov x21, x1
+    mov x22, x2
+    mov x24, x3
     b Lstmt_assign_store
 
 Lstmt_assign_runtime_expr:
@@ -988,10 +1085,28 @@ Lstmt_assign_add:
     mov x1, x20
     bl _lookup_variable
     cbz x0, Lstmt_unknown_var_assign
-    mov x22, x1
+    mov x25, x1
+    mov x26, x2
+    mov x27, x3
     bl _parse_expr_value
     cbz x0, Lstmt_fail
-    add x21, x22, x1
+    cmp x26, #6
+    b.eq Lstmt_assign_add_dec
+    cmp x2, #6
+    b.eq Lstmt_type_mismatch
+    add x21, x25, x1
+    mov x22, x26
+    mov x24, x27
+    b Lstmt_assign_store
+
+Lstmt_assign_add_dec:
+    cmp x2, #6
+    b.ne Lstmt_type_mismatch
+    cmp x3, x27
+    b.ne Lstmt_decimal_scale_error
+    add x21, x25, x1
+    mov x22, #6
+    mov x24, x27
     b Lstmt_assign_store
 
 Lstmt_assign_subtract:
@@ -1003,10 +1118,28 @@ Lstmt_assign_subtract:
     mov x1, x20
     bl _lookup_variable
     cbz x0, Lstmt_unknown_var_assign
-    mov x22, x1
+    mov x25, x1
+    mov x26, x2
+    mov x27, x3
     bl _parse_expr_value
     cbz x0, Lstmt_fail
-    sub x21, x22, x1
+    cmp x26, #6
+    b.eq Lstmt_assign_sub_dec
+    cmp x2, #6
+    b.eq Lstmt_type_mismatch
+    sub x21, x25, x1
+    mov x22, x26
+    mov x24, x27
+    b Lstmt_assign_store
+
+Lstmt_assign_sub_dec:
+    cmp x2, #6
+    b.ne Lstmt_type_mismatch
+    cmp x3, x27
+    b.ne Lstmt_decimal_scale_error
+    sub x21, x25, x1
+    mov x22, #6
+    mov x24, x27
     b Lstmt_assign_store
 
 Lstmt_assign_multiply:
@@ -1018,10 +1151,31 @@ Lstmt_assign_multiply:
     mov x1, x20
     bl _lookup_variable
     cbz x0, Lstmt_unknown_var_assign
-    mov x22, x1
+    mov x25, x1
+    mov x26, x2
+    mov x27, x3
     bl _parse_expr_value
     cbz x0, Lstmt_fail
-    mul x21, x22, x1
+    cmp x26, #6
+    b.eq Lstmt_assign_mul_dec
+    cmp x2, #6
+    b.eq Lstmt_type_mismatch
+    mul x21, x25, x1
+    mov x22, x26
+    mov x24, x27
+    b Lstmt_assign_store
+
+Lstmt_assign_mul_dec:
+    cmp x2, #6
+    b.ne Lstmt_type_mismatch
+    cmp x3, x27
+    b.ne Lstmt_decimal_scale_error
+    mul x21, x25, x1
+    mov x0, x27
+    bl _pow10_u64
+    udiv x21, x21, x0
+    mov x22, #6
+    mov x24, x27
     b Lstmt_assign_store
 
 Lstmt_assign_divide:
@@ -1033,11 +1187,32 @@ Lstmt_assign_divide:
     mov x1, x20
     bl _lookup_variable
     cbz x0, Lstmt_unknown_var_assign
-    mov x22, x1
+    mov x25, x1
+    mov x26, x2
+    mov x27, x3
     bl _parse_expr_value
     cbz x0, Lstmt_fail
     cbz x1, Lstmt_assign_divide_zero
-    udiv x21, x22, x1
+    cmp x26, #6
+    b.eq Lstmt_assign_div_dec
+    cmp x2, #6
+    b.eq Lstmt_type_mismatch
+    udiv x21, x25, x1
+    mov x22, x26
+    mov x24, x27
+    b Lstmt_assign_store
+
+Lstmt_assign_div_dec:
+    cmp x2, #6
+    b.ne Lstmt_type_mismatch
+    cmp x3, x27
+    b.ne Lstmt_decimal_scale_error
+    mov x0, x27
+    bl _pow10_u64
+    mul x21, x25, x0
+    sdiv x21, x21, x1
+    mov x22, #6
+    mov x24, x27
     b Lstmt_assign_store
 
 Lstmt_assign_divide_zero:
@@ -1049,11 +1224,33 @@ Lstmt_assign_divide_zero:
 
 Lstmt_assign_store:
     bl _consume_optional_semicolon
+    mov x25, x21
     mov x0, x19
     mov x1, x20
-    mov x2, x21
+    bl _lookup_variable
+    cbz x0, Lstmt_fail
+    mov x23, x2
+    mov x26, x3
+    cmp x23, #6
+    b.eq Lstmt_assign_check_decimal_target
+    cmp x22, #6
+    b.eq Lstmt_type_mismatch
+    b Lstmt_assign_do_store
+
+Lstmt_assign_check_decimal_target:
+    cmp x22, #6
+    b.ne Lstmt_type_mismatch
+    cmp x24, x26
+    b.ne Lstmt_decimal_scale_error
+
+Lstmt_assign_do_store:
+    mov x0, x19
+    mov x1, x20
+    mov x2, x25
     bl _set_variable
     cbnz x0, Lstmt_fail
+    mov x21, x25
+    mov x2, x21
     mov x0, x19
     mov x1, x20
     bl _lookup_variable
@@ -1087,6 +1284,20 @@ Lstmt_unknown:
     mov x1, x20
     mov x2, #2
     bl _write_buffer_fd
+    bl _write_newline_stderr
+    b Lstmt_fail
+
+Lstmt_type_mismatch:
+    adrp x0, msg_type_mismatch@PAGE
+    add x0, x0, msg_type_mismatch@PAGEOFF
+    bl _report_error_prefix
+    bl _write_newline_stderr
+    b Lstmt_fail
+
+Lstmt_decimal_scale_error:
+    adrp x0, msg_decimal_scale@PAGE
+    add x0, x0, msg_decimal_scale@PAGEOFF
+    bl _report_error_prefix
     bl _write_newline_stderr
     b Lstmt_fail
 
@@ -1136,6 +1347,8 @@ _try_parse_runtime_var_bin_expr:
     cbz x0, Lrt_expr_restore_fail
     mov x23, x4
     cmp x2, #2
+    b.eq Lrt_expr_restore_fail
+    cmp x2, #6
     b.eq Lrt_expr_restore_fail
 
     bl _skip_whitespace
@@ -2312,9 +2525,23 @@ Lexpr_add:
     bl _advance_char
     bl _parse_term_value
     cbz x0, Lexpr_fail
+    cmp x20, #6
+    b.eq Lexpr_add_dec
+    cmp x2, #6
+    b.eq Lexpr_type_mismatch
     add x19, x19, x1
     mov x20, #0
     mov x21, #0
+    mov x24, #-1
+    b Lexpr_loop
+
+Lexpr_add_dec:
+    cmp x2, #6
+    b.ne Lexpr_type_mismatch
+    cmp x3, x21
+    b.ne Lexpr_scale_error
+    add x19, x19, x1
+    mov x20, #6
     mov x24, #-1
     b Lexpr_loop
 
@@ -2322,11 +2549,39 @@ Lexpr_subtract:
     bl _advance_char
     bl _parse_term_value
     cbz x0, Lexpr_fail
+    cmp x20, #6
+    b.eq Lexpr_sub_dec
+    cmp x2, #6
+    b.eq Lexpr_type_mismatch
     sub x19, x19, x1
     mov x20, #0
     mov x21, #0
     mov x24, #-1
     b Lexpr_loop
+
+Lexpr_sub_dec:
+    cmp x2, #6
+    b.ne Lexpr_type_mismatch
+    cmp x3, x21
+    b.ne Lexpr_scale_error
+    sub x19, x19, x1
+    mov x20, #6
+    mov x24, #-1
+    b Lexpr_loop
+
+Lexpr_type_mismatch:
+    adrp x0, msg_type_mismatch@PAGE
+    add x0, x0, msg_type_mismatch@PAGEOFF
+    bl _report_error_prefix
+    bl _write_newline_stderr
+    b Lexpr_fail
+
+Lexpr_scale_error:
+    adrp x0, msg_decimal_scale@PAGE
+    add x0, x0, msg_decimal_scale@PAGEOFF
+    bl _report_error_prefix
+    bl _write_newline_stderr
+    b Lexpr_fail
 
 Lexpr_fail:
     mov x0, #0
@@ -2359,6 +2614,8 @@ Lcond_parse_first:
     bl _parse_condition_atom
     cbz x0, Lcond_fail
     mov x19, x1
+    mov x20, x2
+    mov x21, x3
 
 Lcond_logic_loop:
     adrp x0, kw_and@PAGE
@@ -2410,6 +2667,8 @@ _parse_condition_atom:
     bl _parse_expr_value
     cbz x0, Lcond_atom_fail
     mov x19, x1
+    mov x20, x2
+    mov x21, x3
 
     bl _skip_whitespace
     bl _peek_char
@@ -2434,6 +2693,17 @@ Lcond_equal:
     cbz x0, Lcond_atom_fail
     bl _parse_expr_value
     cbz x0, Lcond_atom_fail
+    cmp x20, #6
+    b.eq Lcond_check_dec_eq
+    cmp x2, #6
+    b.eq Lcond_atom_type_mismatch
+    b Lcond_do_eq
+Lcond_check_dec_eq:
+    cmp x2, #6
+    b.ne Lcond_atom_type_mismatch
+    cmp x3, x21
+    b.ne Lcond_atom_scale_error
+Lcond_do_eq:
     cmp x19, x1
     cset x1, eq
     mov x0, #1
@@ -2446,6 +2716,17 @@ Lcond_not_equal:
     cbz x0, Lcond_atom_fail
     bl _parse_expr_value
     cbz x0, Lcond_atom_fail
+    cmp x20, #6
+    b.eq Lcond_check_dec_ne
+    cmp x2, #6
+    b.eq Lcond_atom_type_mismatch
+    b Lcond_do_ne
+Lcond_check_dec_ne:
+    cmp x2, #6
+    b.ne Lcond_atom_type_mismatch
+    cmp x3, x21
+    b.ne Lcond_atom_scale_error
+Lcond_do_ne:
     cmp x19, x1
     cset x1, ne
     mov x0, #1
@@ -2458,6 +2739,17 @@ Lcond_greater:
     b.eq Lcond_greater_equal
     bl _parse_expr_value
     cbz x0, Lcond_atom_fail
+    cmp x20, #6
+    b.eq Lcond_check_dec_gt
+    cmp x2, #6
+    b.eq Lcond_atom_type_mismatch
+    b Lcond_do_gt
+Lcond_check_dec_gt:
+    cmp x2, #6
+    b.ne Lcond_atom_type_mismatch
+    cmp x3, x21
+    b.ne Lcond_atom_scale_error
+Lcond_do_gt:
     cmp x19, x1
     cset x1, gt
     mov x0, #1
@@ -2467,6 +2759,17 @@ Lcond_greater_equal:
     bl _advance_char
     bl _parse_expr_value
     cbz x0, Lcond_atom_fail
+    cmp x20, #6
+    b.eq Lcond_check_dec_ge
+    cmp x2, #6
+    b.eq Lcond_atom_type_mismatch
+    b Lcond_do_ge
+Lcond_check_dec_ge:
+    cmp x2, #6
+    b.ne Lcond_atom_type_mismatch
+    cmp x3, x21
+    b.ne Lcond_atom_scale_error
+Lcond_do_ge:
     cmp x19, x1
     cset x1, ge
     mov x0, #1
@@ -2479,6 +2782,17 @@ Lcond_less:
     b.eq Lcond_less_equal
     bl _parse_expr_value
     cbz x0, Lcond_atom_fail
+    cmp x20, #6
+    b.eq Lcond_check_dec_lt
+    cmp x2, #6
+    b.eq Lcond_atom_type_mismatch
+    b Lcond_do_lt
+Lcond_check_dec_lt:
+    cmp x2, #6
+    b.ne Lcond_atom_type_mismatch
+    cmp x3, x21
+    b.ne Lcond_atom_scale_error
+Lcond_do_lt:
     cmp x19, x1
     cset x1, lt
     mov x0, #1
@@ -2488,6 +2802,17 @@ Lcond_less_equal:
     bl _advance_char
     bl _parse_expr_value
     cbz x0, Lcond_atom_fail
+    cmp x20, #6
+    b.eq Lcond_check_dec_le
+    cmp x2, #6
+    b.eq Lcond_atom_type_mismatch
+    b Lcond_do_le
+Lcond_check_dec_le:
+    cmp x2, #6
+    b.ne Lcond_atom_type_mismatch
+    cmp x3, x21
+    b.ne Lcond_atom_scale_error
+Lcond_do_le:
     cmp x19, x1
     cset x1, le
     mov x0, #1
@@ -2496,6 +2821,20 @@ Lcond_less_equal:
 Lcond_atom_fail:
     mov x0, #0
     mov x1, #0
+
+Lcond_atom_type_mismatch:
+    adrp x0, msg_type_mismatch@PAGE
+    add x0, x0, msg_type_mismatch@PAGEOFF
+    bl _report_error_prefix
+    bl _write_newline_stderr
+    b Lcond_atom_fail
+
+Lcond_atom_scale_error:
+    adrp x0, msg_decimal_scale@PAGE
+    add x0, x0, msg_decimal_scale@PAGEOFF
+    bl _report_error_prefix
+    bl _write_newline_stderr
+    b Lcond_atom_fail
 
 Lcond_atom_return:
     ldp x21, x22, [sp], #16
@@ -2532,9 +2871,26 @@ Lterm_multiply:
     bl _advance_char
     bl _parse_power_value
     cbz x0, Lterm_fail
+    cmp x20, #6
+    b.eq Lterm_mul_dec
+    cmp x2, #6
+    b.eq Lterm_type_mismatch
     mul x19, x19, x1
     mov x20, #0
     mov x21, #0
+    mov x24, #-1
+    b Lterm_loop
+
+Lterm_mul_dec:
+    cmp x2, #6
+    b.ne Lterm_type_mismatch
+    cmp x3, x21
+    b.ne Lterm_scale_error
+    mul x19, x19, x1
+    mov x0, x21
+    bl _pow10_u64
+    udiv x19, x19, x0
+    mov x20, #6
     mov x24, #-1
     b Lterm_loop
 
@@ -2543,9 +2899,27 @@ Lterm_divide:
     bl _parse_power_value
     cbz x0, Lterm_fail
     cbz x1, Lterm_divide_zero
+    cmp x20, #6
+    b.eq Lterm_div_dec
+    cmp x2, #6
+    b.eq Lterm_type_mismatch
     udiv x19, x19, x1
     mov x20, #0
     mov x21, #0
+    mov x24, #-1
+    b Lterm_loop
+
+Lterm_div_dec:
+    cmp x2, #6
+    b.ne Lterm_type_mismatch
+    cmp x3, x21
+    b.ne Lterm_scale_error
+    mov x22, x1
+    mov x0, x21
+    bl _pow10_u64
+    mul x19, x19, x0
+    sdiv x19, x19, x22
+    mov x20, #6
     mov x24, #-1
     b Lterm_loop
 
@@ -2554,6 +2928,10 @@ Lterm_modulo:
     bl _parse_power_value
     cbz x0, Lterm_fail
     cbz x1, Lterm_divide_zero
+    cmp x20, #6
+    b.eq Lterm_unsupported_decimal
+    cmp x2, #6
+    b.eq Lterm_unsupported_decimal
     udiv x9, x19, x1
     msub x19, x9, x1, x19
     mov x20, #0
@@ -2564,6 +2942,27 @@ Lterm_modulo:
 Lterm_divide_zero:
     adrp x0, msg_divide_zero@PAGE
     add x0, x0, msg_divide_zero@PAGEOFF
+    bl _report_error_prefix
+    bl _write_newline_stderr
+    b Lterm_fail
+
+Lterm_unsupported_decimal:
+    adrp x0, msg_unsupported_decimal@PAGE
+    add x0, x0, msg_unsupported_decimal@PAGEOFF
+    bl _report_error_prefix
+    bl _write_newline_stderr
+    b Lterm_fail
+
+Lterm_type_mismatch:
+    adrp x0, msg_type_mismatch@PAGE
+    add x0, x0, msg_type_mismatch@PAGEOFF
+    bl _report_error_prefix
+    bl _write_newline_stderr
+    b Lterm_fail
+
+Lterm_scale_error:
+    adrp x0, msg_decimal_scale@PAGE
+    add x0, x0, msg_decimal_scale@PAGEOFF
     bl _report_error_prefix
     bl _write_newline_stderr
     b Lterm_fail
@@ -2718,6 +3117,13 @@ Lprimary_identifier:
 
     mov x0, x19
     mov x1, x20
+    adrp x2, kw_cast@PAGE
+    add x2, x2, kw_cast@PAGEOFF
+    bl _match_cstr_span
+    cbnz x0, Lprimary_cast
+
+    mov x0, x19
+    mov x1, x20
     adrp x2, kw_true@PAGE
     add x2, x2, kw_true@PAGEOFF
     bl _match_cstr_span
@@ -2750,6 +3156,7 @@ Lprimary_try_fn_call:
     bl _call_function
     cbnz x0, Lprimary_fail
     mov x20, x1
+    mov x21, x2
     // Read return value
     adrp x9, fn_return_value@PAGE
     add x9, x9, fn_return_value@PAGEOFF
@@ -2757,10 +3164,16 @@ Lprimary_try_fn_call:
     mov x0, #1
     mov x2, x20
     cmp x20, #2
+    b.eq Lprimary_fn_call_load_len
+    cmp x20, #6
     b.ne Lprimary_fn_call_non_str
+Lprimary_fn_call_load_len:
     adrp x9, fn_return_length@PAGE
     add x9, x9, fn_return_length@PAGEOFF
     ldr x3, [x9]
+    cmp x20, #6
+    b.ne Lprimary_fn_call_done
+    mov x3, x21
     b Lprimary_fn_call_done
 Lprimary_fn_call_non_str:
     mov x3, #0
@@ -2785,12 +3198,8 @@ Lprimary_false:
     b Lprimary_return
 
 Lprimary_number:
-    bl _parse_number
+    bl _parse_numeric_literal
     cbz x0, Lprimary_fail
-    mov x0, #1
-    mov x2, #0 // integer
-    mov x3, #0
-    mov x4, #-1
     b Lprimary_return
 
 Lprimary_string:
@@ -2823,6 +3232,315 @@ Lprimary_fail:
 
 Lprimary_return:
     ldp x23, x24, [sp], #16
+    ldp x21, x22, [sp], #16
+    ldp x19, x20, [sp], #16
+    ldp x29, x30, [sp], #16
+    ret
+
+Lprimary_cast:
+    bl _parse_cast_expression
+    b Lprimary_return
+
+_pow10_u64:
+    stp x29, x30, [sp, #-16]!
+    mov x29, sp
+    mov x1, #1
+    mov x2, #10
+Lpow10_loop:
+    cbz x0, Lpow10_done
+    mul x1, x1, x2
+    sub x0, x0, #1
+    b Lpow10_loop
+Lpow10_done:
+    mov x0, x1
+    ldp x29, x30, [sp], #16
+    ret
+
+_parse_decimal_type_suffix:
+    stp x29, x30, [sp, #-16]!
+    mov x29, sp
+    stp x19, x20, [sp, #-16]!
+    bl _skip_whitespace
+    mov w0, #'('
+    bl _expect_char
+    cbz x0, Lparse_dec_suffix_fail
+    bl _parse_number
+    cbz x0, Lparse_dec_suffix_fail
+    mov x19, x1
+    mov w0, #')'
+    bl _expect_char
+    cbz x0, Lparse_dec_suffix_fail
+    mov x0, #1
+    mov x1, x19
+    ldp x19, x20, [sp], #16
+    ldp x29, x30, [sp], #16
+    ret
+Lparse_dec_suffix_fail:
+    mov x0, #0
+    ldp x19, x20, [sp], #16
+    ldp x29, x30, [sp], #16
+    ret
+
+_parse_type_spec:
+    stp x29, x30, [sp, #-16]!
+    mov x29, sp
+    stp x19, x20, [sp, #-16]!
+
+    bl _parse_identifier
+    cbz x0, Lparse_type_fail
+    mov x19, x0
+    mov x20, x1
+
+    mov x0, x19
+    mov x1, x20
+    adrp x2, kw_int@PAGE
+    add x2, x2, kw_int@PAGEOFF
+    bl _match_cstr_span
+    cbnz x0, Lparse_type_int
+
+    mov x0, x19
+    mov x1, x20
+    adrp x2, kw_bool@PAGE
+    add x2, x2, kw_bool@PAGEOFF
+    bl _match_cstr_span
+    cbnz x0, Lparse_type_bool
+
+    mov x0, x19
+    mov x1, x20
+    adrp x2, kw_byte@PAGE
+    add x2, x2, kw_byte@PAGEOFF
+    bl _match_cstr_span
+    cbnz x0, Lparse_type_byte
+
+    mov x0, x19
+    mov x1, x20
+    adrp x2, kw_str@PAGE
+    add x2, x2, kw_str@PAGEOFF
+    bl _match_cstr_span
+    cbnz x0, Lparse_type_str
+
+    mov x0, x19
+    mov x1, x20
+    adrp x2, kw_dec@PAGE
+    add x2, x2, kw_dec@PAGEOFF
+    bl _match_cstr_span
+    cbnz x0, Lparse_type_dec
+
+Lparse_type_fail:
+    mov x0, #0
+    ldp x19, x20, [sp], #16
+    ldp x29, x30, [sp], #16
+    ret
+
+Lparse_type_int:
+    mov x0, #1
+    mov x1, #0
+    mov x2, #0
+    b Lparse_type_return
+Lparse_type_bool:
+    mov x0, #1
+    mov x1, #1
+    mov x2, #0
+    b Lparse_type_return
+Lparse_type_byte:
+    mov x0, #1
+    mov x1, #3
+    mov x2, #0
+    b Lparse_type_return
+Lparse_type_str:
+    mov x0, #1
+    mov x1, #2
+    mov x2, #0
+    b Lparse_type_return
+Lparse_type_dec:
+    bl _parse_decimal_type_suffix
+    cbz x0, Lparse_type_fail
+    mov x2, x1
+    mov x1, #6
+    mov x0, #1
+
+Lparse_type_return:
+    ldp x19, x20, [sp], #16
+    ldp x29, x30, [sp], #16
+    ret
+
+_parse_cast_expression:
+    stp x29, x30, [sp, #-16]!
+    mov x29, sp
+    stp x19, x20, [sp, #-16]!
+    stp x21, x22, [sp, #-16]!
+    stp x23, x24, [sp, #-16]!
+
+    bl _skip_whitespace
+    mov w0, #'('
+    bl _expect_char
+    cbz x0, Lcast_fail
+    bl _parse_expr_value
+    cbz x0, Lcast_fail
+    mov x19, x1
+    mov x20, x2
+    mov x21, x3
+
+    bl _skip_whitespace
+    mov w0, #','
+    bl _expect_char
+    cbz x0, Lcast_fail
+    bl _skip_whitespace
+    bl _parse_type_spec
+    cbz x0, Lcast_fail
+    mov x22, x1
+    mov x23, x2
+    bl _skip_whitespace
+    mov w0, #')'
+    bl _expect_char
+    cbz x0, Lcast_fail
+
+    cmp x22, #6
+    b.eq Lcast_to_dec
+    cmp x22, #0
+    b.eq Lcast_to_int
+    b Lcast_type_mismatch
+
+Lcast_to_dec:
+    cmp x20, #0
+    b.eq Lcast_int_to_dec
+    cmp x20, #6
+    b.ne Lcast_type_mismatch
+    cmp x21, x23
+    b.eq Lcast_dec_same
+    b.gt Lcast_dec_to_smaller
+    sub x0, x23, x21
+    bl _pow10_u64
+    mul x19, x19, x0
+    b Lcast_dec_finish
+Lcast_dec_to_smaller:
+    sub x0, x21, x23
+    bl _pow10_u64
+    sdiv x19, x19, x0
+    b Lcast_dec_finish
+Lcast_dec_same:
+Lcast_dec_finish:
+    mov x0, #1
+    mov x1, x19
+    mov x2, #6
+    mov x3, x23
+    mov x4, #-1
+    b Lcast_return
+
+Lcast_int_to_dec:
+    mov x0, x23
+    bl _pow10_u64
+    mul x19, x19, x0
+    mov x0, #1
+    mov x1, x19
+    mov x2, #6
+    mov x3, x23
+    mov x4, #-1
+    b Lcast_return
+
+Lcast_to_int:
+    cmp x20, #0
+    b.eq Lcast_int_same
+    cmp x20, #6
+    b.ne Lcast_type_mismatch
+    mov x0, x21
+    bl _pow10_u64
+    sdiv x19, x19, x0
+Lcast_int_same:
+    mov x0, #1
+    mov x1, x19
+    mov x2, #0
+    mov x3, #0
+    mov x4, #-1
+    b Lcast_return
+
+Lcast_type_mismatch:
+    adrp x0, msg_type_mismatch@PAGE
+    add x0, x0, msg_type_mismatch@PAGEOFF
+    bl _report_error_prefix
+    bl _write_newline_stderr
+Lcast_fail:
+    mov x0, #0
+
+Lcast_return:
+    ldp x23, x24, [sp], #16
+    ldp x21, x22, [sp], #16
+    ldp x19, x20, [sp], #16
+    ldp x29, x30, [sp], #16
+    ret
+
+_parse_numeric_literal:
+    stp x29, x30, [sp, #-16]!
+    mov x29, sp
+    stp x19, x20, [sp, #-16]!
+    stp x21, x22, [sp, #-16]!
+
+    adrp x9, cursor_pos@PAGE
+    add x9, x9, cursor_pos@PAGEOFF
+    ldr x21, [x9]
+    adrp x9, current_line@PAGE
+    add x9, x9, current_line@PAGEOFF
+    ldr x22, [x9]
+
+    bl _parse_number
+    cbz x0, Lnum_lit_fail
+    mov x19, x1
+    bl _peek_char
+    cmp w0, #'.'
+    b.ne Lnum_lit_int
+    bl _advance_char
+    mov x20, #0
+    mov x3, #0
+Lnum_lit_frac_loop:
+    bl _peek_char
+    cmp w0, #'0'
+    b.lt Lnum_lit_frac_done
+    cmp w0, #'9'
+    b.gt Lnum_lit_frac_done
+    mov x9, #10
+    mul x20, x20, x9
+    sub w10, w0, #'0'
+    add x20, x20, x10
+    bl _advance_char
+    add x3, x3, #1
+    b Lnum_lit_frac_loop
+Lnum_lit_frac_done:
+    cbz x3, Lnum_lit_invalid
+    mov x0, x3
+    bl _pow10_u64
+    mul x19, x19, x0
+    add x19, x19, x20
+    mov x0, #1
+    mov x1, x19
+    mov x2, #6
+    mov x4, #-1
+    b Lnum_lit_return
+
+Lnum_lit_int:
+    mov x0, #1
+    mov x1, x19
+    mov x2, #0
+    mov x3, #0
+    mov x4, #-1
+    b Lnum_lit_return
+
+Lnum_lit_invalid:
+    adrp x0, msg_invalid_decimal@PAGE
+    add x0, x0, msg_invalid_decimal@PAGEOFF
+    bl _report_error_prefix
+    bl _write_newline_stderr
+    b Lnum_lit_fail
+
+Lnum_lit_fail:
+    adrp x9, cursor_pos@PAGE
+    add x9, x9, cursor_pos@PAGEOFF
+    str x21, [x9]
+    adrp x9, current_line@PAGE
+    add x9, x9, current_line@PAGEOFF
+    str x22, [x9]
+    mov x0, #0
+
+Lnum_lit_return:
     ldp x21, x22, [sp], #16
     ldp x19, x20, [sp], #16
     ldp x29, x30, [sp], #16
@@ -3245,51 +3963,10 @@ Lfn_def_param_loop:
 Lfn_def_parse_param:
     cmp x22, #4
     b.ge Lfn_def_too_many_params
-    // Parse type keyword (int, str, bool, byte)
-    bl _parse_identifier
+    bl _parse_type_spec
     cbz x0, Lfn_def_fail
-    mov x23, x0   // type name ptr
-    mov x24, x1   // type name len
-
-    // Determine type code
-    mov x0, x23
-    mov x1, x24
-    adrp x2, kw_int@PAGE
-    add x2, x2, kw_int@PAGEOFF
-    bl _match_cstr_span
-    cbnz x0, Lfn_def_param_type_int
-    mov x0, x23
-    mov x1, x24
-    adrp x2, kw_str@PAGE
-    add x2, x2, kw_str@PAGEOFF
-    bl _match_cstr_span
-    cbnz x0, Lfn_def_param_type_str
-    mov x0, x23
-    mov x1, x24
-    adrp x2, kw_bool@PAGE
-    add x2, x2, kw_bool@PAGEOFF
-    bl _match_cstr_span
-    cbnz x0, Lfn_def_param_type_bool
-    mov x0, x23
-    mov x1, x24
-    adrp x2, kw_byte@PAGE
-    add x2, x2, kw_byte@PAGEOFF
-    bl _match_cstr_span
-    cbnz x0, Lfn_def_param_type_byte
-    // default to int
-    b Lfn_def_param_type_int
-
-Lfn_def_param_type_int:
-    mov x25, #0
-    b Lfn_def_param_store_type
-Lfn_def_param_type_str:
-    mov x25, #2
-    b Lfn_def_param_store_type
-Lfn_def_param_type_bool:
-    mov x25, #1
-    b Lfn_def_param_store_type
-Lfn_def_param_type_byte:
-    mov x25, #3
+    mov x25, x1
+    mov x24, x2
 
 Lfn_def_param_store_type:
     // Store param type: fn_param_types[fn_idx * 4 + param_idx]
@@ -3300,6 +3977,9 @@ Lfn_def_param_store_type:
     adrp x10, fn_param_types@PAGE
     add x10, x10, fn_param_types@PAGEOFF
     str x25, [x10, x9, lsl #3]
+    adrp x10, fn_param_lengths@PAGE
+    add x10, x10, fn_param_lengths@PAGEOFF
+    str x24, [x10, x9, lsl #3]
 Lfn_def_param_skip_store:
 
     // Parse param name
@@ -3349,44 +4029,18 @@ Lfn_def_count_done:
 
     // Parse return type
     bl _skip_whitespace
-    bl _parse_identifier
+    bl _parse_type_spec
     cbz x0, Lfn_def_fail
-    // Store return type (0=int, 1=bool, 2=str)
-    mov x23, x0
-    mov x24, x1
-    mov x0, x23
-    mov x1, x24
-    adrp x2, kw_str@PAGE
-    add x2, x2, kw_str@PAGEOFF
-    bl _match_cstr_span
-    cbnz x0, Lfn_def_ret_str
-    mov x0, x23
-    mov x1, x24
-    adrp x2, kw_bool@PAGE
-    add x2, x2, kw_bool@PAGEOFF
-    bl _match_cstr_span
-    cbnz x0, Lfn_def_ret_bool
-    mov x0, x23
-    mov x1, x24
-    adrp x2, kw_byte@PAGE
-    add x2, x2, kw_byte@PAGEOFF
-    bl _match_cstr_span
-    cbnz x0, Lfn_def_ret_byte
-    mov x25, #0  // default int
-    b Lfn_def_store_ret
-Lfn_def_ret_bool:
-    mov x25, #1
-    b Lfn_def_store_ret
-Lfn_def_ret_str:
-    mov x25, #2
-    b Lfn_def_store_ret
-Lfn_def_ret_byte:
-    mov x25, #3
+    mov x25, x1
+    mov x24, x2
 Lfn_def_store_ret:
     cbnz x26, Lfn_def_expect_body
     adrp x9, fn_return_types@PAGE
     add x9, x9, fn_return_types@PAGEOFF
     str x25, [x9, x21, lsl #3]
+    adrp x9, fn_return_decl_lengths@PAGE
+    add x9, x9, fn_return_decl_lengths@PAGEOFF
+    str x24, [x9, x21, lsl #3]
     b Lfn_def_expect_body
 
 Lfn_def_no_return_type:
@@ -3396,6 +4050,9 @@ Lfn_def_no_return_type:
     adrp x9, fn_return_types@PAGE
     add x9, x9, fn_return_types@PAGEOFF
     str x25, [x9, x21, lsl #3]
+    adrp x9, fn_return_decl_lengths@PAGE
+    add x9, x9, fn_return_decl_lengths@PAGEOFF
+    str xzr, [x9, x21, lsl #3]
 
 Lfn_def_expect_body:
     bl _skip_whitespace
@@ -3589,6 +4246,9 @@ Lfn_call_parse_arg:
     adrp x10, fn_param_types@PAGE
     add x10, x10, fn_param_types@PAGEOFF
     ldr x27, [x10, x9, lsl #3]
+    adrp x10, fn_param_lengths@PAGE
+    add x10, x10, fn_param_lengths@PAGEOFF
+    ldr x5, [x10, x9, lsl #3]
 
     bl _parse_expr_value
     cbz x0, Lfn_call_fail
@@ -3604,6 +4264,11 @@ Lfn_call_parse_arg:
     b.ne Lfn_call_fail
 
 Lfn_call_define_arg:
+    cmp x27, #6
+    b.ne Lfn_call_define_arg_len_ok
+    cmp x7, x5
+    b.ne Lfn_call_fail
+Lfn_call_define_arg_len_ok:
     mov x0, x25
     mov x1, x26
     mov x2, x28
@@ -3716,6 +4381,9 @@ Lfn_call_body_done:
     adrp x9, fn_return_types@PAGE
     add x9, x9, fn_return_types@PAGEOFF
     ldr x1, [x9, x21, lsl #3]
+    adrp x9, fn_return_decl_lengths@PAGE
+    add x9, x9, fn_return_decl_lengths@PAGEOFF
+    ldr x2, [x9, x21, lsl #3]
     b Lfn_call_return
 
 Lfn_call_unknown:

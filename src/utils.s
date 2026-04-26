@@ -7,6 +7,8 @@
  .global _write_buffer_fd
  .global _write_newline_stderr
  .global _write_u64_fd
+ .global _write_i64_fd
+ .global _write_decimal_raw_fd
  .global _cstring_length
 
 _match_cstr_span:
@@ -179,6 +181,141 @@ Lwrite_u64_loop:
     bl _write_buffer_fd
 
 Lwrite_u64_done:
+    ldp x21, x22, [sp], #16
+    ldp x19, x20, [sp], #16
+    ldp x29, x30, [sp], #16
+    ret
+
+_write_i64_fd:
+    stp x29, x30, [sp, #-16]!
+    mov x29, sp
+    stp x19, x20, [sp, #-16]!
+
+    mov x19, x0
+    mov x20, x1
+    cmp x19, #0
+    b.ge Lwrite_i64_positive
+    adrp x0, single_char@PAGE
+    add x0, x0, single_char@PAGEOFF
+    mov w9, #'-'
+    strb w9, [x0]
+    mov x1, #1
+    mov x2, x20
+    bl _write_buffer_fd
+    neg x19, x19
+
+Lwrite_i64_positive:
+    mov x0, x19
+    mov x1, x20
+    bl _write_u64_fd
+
+    ldp x19, x20, [sp], #16
+    ldp x29, x30, [sp], #16
+    ret
+
+_write_decimal_raw_fd:
+    stp x29, x30, [sp, #-16]!
+    mov x29, sp
+    stp x19, x20, [sp, #-16]!
+    stp x21, x22, [sp, #-16]!
+    stp x23, x24, [sp, #-16]!
+
+    mov x19, x0 // raw value
+    mov x20, x1 // scale
+    mov x21, x2 // fd
+
+    cmp x19, #0
+    b.ge Lwrite_dec_abs_ready
+    adrp x0, single_char@PAGE
+    add x0, x0, single_char@PAGEOFF
+    mov w9, #'-'
+    strb w9, [x0]
+    mov x1, #1
+    mov x2, x21
+    bl _write_buffer_fd
+    neg x19, x19
+
+Lwrite_dec_abs_ready:
+    cbz x20, Lwrite_dec_int_only
+
+    mov x22, #1
+    mov x23, x20
+    mov x9, #10
+Lwrite_dec_pow_loop:
+    cbz x23, Lwrite_dec_pow_done
+    mul x22, x22, x9
+    sub x23, x23, #1
+    b Lwrite_dec_pow_loop
+Lwrite_dec_pow_done:
+    udiv x23, x19, x22
+    msub x24, x23, x22, x19
+
+    mov x0, x23
+    mov x1, x21
+    bl _write_u64_fd
+
+    adrp x0, single_char@PAGE
+    add x0, x0, single_char@PAGEOFF
+    mov w9, #'.'
+    strb w9, [x0]
+    mov x1, #1
+    mov x2, x21
+    bl _write_buffer_fd
+
+    adrp x9, number_buffer@PAGE
+    add x9, x9, number_buffer@PAGEOFF
+    add x10, x9, #31
+    mov x11, #0
+    mov x12, x24
+    cbnz x12, Lwrite_dec_frac_digits
+    mov w13, #'0'
+    strb w13, [x10]
+    mov x11, #1
+    b Lwrite_dec_frac_ready
+
+Lwrite_dec_frac_digits:
+    mov x13, #10
+Lwrite_dec_frac_loop:
+    udiv x14, x12, x13
+    msub x15, x14, x13, x12
+    add w15, w15, #'0'
+    strb w15, [x10]
+    sub x10, x10, #1
+    add x11, x11, #1
+    mov x12, x14
+    cbnz x12, Lwrite_dec_frac_loop
+    add x10, x10, #1
+
+Lwrite_dec_frac_ready:
+    cmp x11, x20
+    b.ge Lwrite_dec_frac_emit
+    sub x12, x20, x11
+    mov w13, #'0'
+Lwrite_dec_zero_pad_loop:
+    cbz x12, Lwrite_dec_frac_emit
+    adrp x0, single_char@PAGE
+    add x0, x0, single_char@PAGEOFF
+    strb w13, [x0]
+    mov x1, #1
+    mov x2, x21
+    bl _write_buffer_fd
+    sub x12, x12, #1
+    b Lwrite_dec_zero_pad_loop
+
+Lwrite_dec_frac_emit:
+    mov x0, x10
+    mov x1, x11
+    mov x2, x21
+    bl _write_buffer_fd
+    b Lwrite_dec_done
+
+Lwrite_dec_int_only:
+    mov x0, x19
+    mov x1, x21
+    bl _write_u64_fd
+
+Lwrite_dec_done:
+    ldp x23, x24, [sp], #16
     ldp x21, x22, [sp], #16
     ldp x19, x20, [sp], #16
     ldp x29, x30, [sp], #16

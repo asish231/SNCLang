@@ -1,0 +1,5 @@
+fn take(dec(2) value) -> dec(2) {
+    return value
+}
+
+print(take(1))

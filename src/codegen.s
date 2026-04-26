@@ -682,6 +682,8 @@ _emit_print_call:
 
     cmp x21, #2 // type 2 is string
     b.eq Lemit_print_str_fmt
+    cmp x21, #6 // decimal prints via generated string data
+    b.eq Lemit_print_str_fmt
 
     adrp x0, asm_print_fmt_int_adrp@PAGE
     add x0, x0, asm_print_fmt_int_adrp@PAGEOFF
@@ -771,6 +773,8 @@ _emit_print_data:
 
     cmp x23, #2 // string
     b.eq Lemit_data_str
+    cmp x23, #6 // decimal rendered as string literal
+    b.eq Lemit_data_dec
 
     adrp x0, asm_data_value_mid@PAGE
     add x0, x0, asm_data_value_mid@PAGEOFF
@@ -804,6 +808,27 @@ Lemit_data_str:
     add x0, x0, asm_data_value_suffix_str@PAGEOFF
     mov x1, #1
     bl _write_cstr_fd
+    b Lemit_data_done
+
+Lemit_data_dec:
+    adrp x0, asm_data_value_mid_str@PAGE
+    add x0, x0, asm_data_value_mid_str@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+
+    adrp x20, print_lengths@PAGE
+    add x20, x20, print_lengths@PAGEOFF
+    ldr x22, [x20, x19, lsl #3] // scale
+
+    mov x0, x21
+    mov x1, x22
+    mov x2, #1
+    bl _write_decimal_raw_fd
+
+    adrp x0, asm_data_value_suffix_str@PAGE
+    add x0, x0, asm_data_value_suffix_str@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
 
 Lemit_data_done:
     ldp x23, x24, [sp], #16
@@ -818,9 +843,7 @@ _emit_var_slot_data:
     stp x19, x20, [sp, #-16]!
     stp x21, x22, [sp, #-16]!
 
-    adrp x19, var_count@PAGE
-    add x19, x19, var_count@PAGEOFF
-    ldr x20, [x19]
+    mov x20, #64
     mov x21, #0
 
 Lemit_var_slot_loop:

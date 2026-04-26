@@ -60,6 +60,18 @@ test: snc
 	./snc examples/functions.sn > /tmp/snc_functions.s
 	clang /tmp/snc_functions.s -o /tmp/snc_functions
 	/tmp/snc_functions
+	./snc examples/decimals.sn > /tmp/snc_decimals.s
+	clang /tmp/snc_decimals.s -o /tmp/snc_decimals
+	/tmp/snc_decimals
+	./snc examples/decimals_fractional.sn > /tmp/snc_decimals_fractional.s
+	clang /tmp/snc_decimals_fractional.s -o /tmp/snc_decimals_fractional
+	/tmp/snc_decimals_fractional
+	./snc examples/decimals_invalid_type.sn >/tmp/snc_dec_invalid_type.s 2>/tmp/snc_dec_invalid_type.err; test $$? -ne 0
+	./snc examples/decimals_invalid_literal.sn >/tmp/snc_dec_invalid_literal.s 2>/tmp/snc_dec_invalid_literal.err; test $$? -ne 0
+	./snc examples/decimals_invalid_scale.sn >/tmp/snc_dec_invalid_scale.s 2>/tmp/snc_dec_invalid_scale.err; test $$? -ne 0
+	./snc examples/decimals_invalid_mixed.sn >/tmp/snc_dec_invalid_mixed.s 2>/tmp/snc_dec_invalid_mixed.err; test $$? -ne 0
+	./snc examples/decimals_invalid_mod.sn >/tmp/snc_dec_invalid_mod.s 2>/tmp/snc_dec_invalid_mod.err; test $$? -ne 0
+	./snc examples/decimals_invalid_arg.sn >/tmp/snc_dec_invalid_arg.s 2>/tmp/snc_dec_invalid_arg.err; test $$? -ne 0
 
 clean:
 	rm -f snc src/*.o
