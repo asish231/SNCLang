@@ -57,6 +57,9 @@
 .global kw_in
 .global kw_return
 .global asm_header
+.global asm_sub_sp_prefix
+.global asm_close_bracket
+.global asm_print_call_suffix_stack
 .global asm_print_fmt_adrp
 .global asm_print_val_adrp
 .global asm_print_val_ldr
@@ -222,6 +225,8 @@ kw_stop:           .asciz "stop"
 kw_skip:           .asciz "skip"
 kw_in:             .asciz "in"
 kw_return:         .asciz "return"
+asm_sub_sp_prefix:
+    .asciz "    sub sp, sp, #"
 asm_header:
     .asciz ".global _main\n.align 4\n.extern _printf\n\n.text\n_main:\n    stp x29, x30, [sp, #-16]!\n    mov x29, sp\n"
 asm_print_fmt_int_adrp:
@@ -236,6 +241,8 @@ asm_print_str_val_adrp:
     .asciz "    adrp x1, print_val_"
 asm_print_str_val_add:
     .asciz "@PAGE\n    add x1, x1, print_val_"
+asm_print_call_suffix_stack:
+    .asciz "]\n    sub sp, sp, #16\n    str x1, [sp]\n    bl _printf\n    add sp, sp, #16\n"
 asm_print_call_suffix:
     .asciz "@PAGEOFF]\n    sub sp, sp, #16\n    str x1, [sp]\n    bl _printf\n    add sp, sp, #16\n"
 asm_print_call_stack:
@@ -249,29 +256,31 @@ asm_store_val_ldr:
 asm_store_var_adrp:
     .asciz "@PAGEOFF]\n    adrp x11, var_slot_"
 asm_store_var_str:
-    .asciz "@PAGE\n    str x10, [x11, var_slot_"
+    .asciz "@PAGEOFF]\n    stur x10, [x29, #-"
 asm_store_var_suffix:
     .asciz "@PAGEOFF]\n"
+asm_close_bracket:
+    .asciz "]\n"
 asm_print_var_adrp:
     .asciz "    adrp x9, var_slot_"
 asm_print_var_ldr:
-    .asciz "@PAGE\n    ldr x1, [x9, var_slot_"
+    .asciz "    ldur x1, [x29, #-"
 asm_math_var_x11_adrp:
     .asciz "    adrp x11, var_slot_"
 asm_math_var_x11_ldr:
-    .asciz "@PAGE\n    ldr x11, [x11, var_slot_"
+    .asciz "    ldur x11, [x29, #-"
 asm_math_var_x1_adrp:
     .asciz "    adrp x11, var_slot_"
 asm_math_var_x1_ldr:
-    .asciz "@PAGE\n    ldr x1, [x11, var_slot_"
+    .asciz "    ldur x1, [x29, #-"
 asm_math_var_x10_adrp:
     .asciz "    adrp x12, var_slot_"
 asm_math_var_x10_ldr:
-    .asciz "@PAGE\n    ldr x10, [x12, var_slot_"
+    .asciz "    ldur x10, [x29, #-"
 asm_math_store_x11_adrp:
     .asciz "    adrp x12, var_slot_"
 asm_math_store_x11_str:
-    .asciz "@PAGE\n    str x11, [x12, var_slot_"
+    .asciz "    stur x11, [x29, #-"
 asm_math_add_x11_x10:
     .asciz "    add x11, x11, x10\n"
 asm_math_sub_x11_x10:
@@ -293,7 +302,7 @@ asm_math_div_x1_x10:
 asm_math_mod_x1_x10:
     .asciz "    udiv x13, x1, x10\n    msub x1, x13, x10, x1\n"
 asm_data_intro:
-    .asciz "    mov w0, #0\n    ldp x29, x30, [sp], #16\n    ret\n\n.data\nprint_fmt_int:\n    .asciz \"%lld\\n\"\nprint_fmt_str:\n    .asciz \"%s\\n\"\n.align 3\n"
+    .asciz "    mov w0, #0\n    mov sp, x29\n    ldp x29, x30, [sp], #16\n    ret\n\n.data\nprint_fmt_int:\n    .asciz \"%lld\\n\"\nprint_fmt_str:\n    .asciz \"%s\\n\"\n.align 3\n"
 asm_data_value_prefix:
     .asciz "print_val_"
 asm_data_value_mid:
