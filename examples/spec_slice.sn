@@ -1,0 +1,12 @@
+// A first SNlang-spec shaped program.
+fn main() {
+    int a = 30
+    int b = 7
+
+    /*
+       These use spec-style print calls and no semicolons.
+    */
+    print(a / b)
+    print(a % b)
+    print((a + b) * 2)
+}

@@ -1,0 +1,22 @@
+fn main() {
+    int age = 20
+    int score = 45
+
+    if (age >= 18) {
+        print(1)
+    } else {
+        print(0)
+    }
+
+    if (score > 50) {
+        print(100)
+    } else {
+        print(200)
+    }
+
+    if (score != 45) {
+        print(300)
+    } else {
+        print(400)
+    }
+}

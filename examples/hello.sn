@@ -1,0 +1,8 @@
+// My first SNlang program
+fn main() {
+    str name = "World"
+    int count = 3
+    if (count > 0) {
+        print("Hello, " + name)
+    }
+}

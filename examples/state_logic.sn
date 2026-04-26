@@ -1,0 +1,31 @@
+fn main() {
+    const int LIMIT = 10
+    bool ready = true
+    bool blocked = false
+
+    int total = 2
+    total += 3
+    total *= 4
+    total /= 2
+    total -= 1
+
+    print(total)
+
+    if (ready and total < LIMIT) {
+        print(1)
+    } else {
+        print(0)
+    }
+
+    if (not blocked) {
+        print(LIMIT)
+    } else {
+        print(0)
+    }
+
+    if (false or total == 9) {
+        print(99)
+    } else {
+        print(0)
+    }
+}
