@@ -502,6 +502,7 @@ Lemit_op_done:
     ret
 
 _emit_math_opcode_x11:
+    b Lemit_math_x11_dispatch
 
 
 Lemit_op_if_start:
@@ -860,6 +861,7 @@ Lemit_cmp_write_cset:
     b Lemit_op_done
 
 
+Lemit_math_x11_dispatch:
     stp x29, x30, [sp, #-16]!
     mov x29, sp
     stp x19, x20, [sp, #-16]!

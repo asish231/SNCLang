@@ -272,8 +272,8 @@ Lstmt_let:
 
     bl _parse_expr_value
     cbz x0, Lstmt_fail
-    cmp x2, #6
-    b.eq Lstmt_type_mismatch
+    cmp x2, #0
+    b.ne Lstmt_type_mismatch
     mov x21, x1
 
     bl _consume_optional_semicolon
@@ -311,8 +311,8 @@ Lstmt_int:
 
     bl _parse_expr_value
     cbz x0, Lstmt_fail
-    cmp x2, #6
-    b.eq Lstmt_type_mismatch
+    cmp x2, #0
+    b.ne Lstmt_type_mismatch
     mov x21, x1
 
     bl _consume_optional_semicolon
@@ -348,8 +348,10 @@ Lstmt_bool:
     bl _expect_char
     cbz x0, Lstmt_fail
 
-    bl _parse_condition_value
+    bl _parse_expr_value
     cbz x0, Lstmt_fail
+    cmp x2, #1
+    b.ne Lstmt_type_mismatch
     mov x21, x1
 
     bl _consume_optional_semicolon
@@ -388,8 +390,11 @@ Lstmt_byte:
 
     bl _parse_expr_value
     cbz x0, Lstmt_fail
-    cmp x2, #6
-    b.eq Lstmt_type_mismatch
+    cmp x2, #0
+    b.eq Lstmt_byte_type_ok
+    cmp x2, #3
+    b.ne Lstmt_type_mismatch
+Lstmt_byte_type_ok:
     mov x21, x1
 
     bl _consume_optional_semicolon
@@ -625,6 +630,8 @@ Lstmt_const_int:
 
     bl _parse_expr_value
     cbz x0, Lstmt_fail
+    cmp x2, #0
+    b.ne Lstmt_type_mismatch
     mov x21, x1
     mov x24, #0
     b Lstmt_const_store
@@ -642,8 +649,10 @@ Lstmt_const_bool:
     bl _expect_char
     cbz x0, Lstmt_fail
 
-    bl _parse_condition_value
+    bl _parse_expr_value
     cbz x0, Lstmt_fail
+    cmp x2, #1
+    b.ne Lstmt_type_mismatch
     mov x21, x1
     mov x24, #0
     b Lstmt_const_store
@@ -1249,8 +1258,17 @@ Lstmt_assign_store:
     mov x26, x3
     cmp x23, #6
     b.eq Lstmt_assign_check_decimal_target
-    cmp x22, #6
-    b.eq Lstmt_type_mismatch
+    cmp x23, #3
+    b.eq Lstmt_assign_check_byte_target
+    cmp x22, x23
+    b.ne Lstmt_type_mismatch
+    b Lstmt_assign_do_store
+
+Lstmt_assign_check_byte_target:
+    cmp x22, #0
+    b.eq Lstmt_assign_do_store
+    cmp x22, #3
+    b.ne Lstmt_type_mismatch
     b Lstmt_assign_do_store
 
 Lstmt_assign_check_decimal_target:
