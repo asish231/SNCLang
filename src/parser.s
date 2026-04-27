@@ -1790,7 +1790,7 @@ Lwhile_return:
 
 // ========================================================
 // for (init, condition, update) { body }
-// Compile-time interpretation for now.
+// Runtime codegen via labels/branches (no compile-time unrolling).
 // ========================================================
 _parse_for_statement_after_keyword:
     stp x29, x30, [sp, #-16]!
@@ -1833,17 +1833,24 @@ Lfor_counted_restore:
     add x9, x9, current_line@PAGEOFF
     str x27, [x9]
 
-    // --- Parse init statement (e.g. int i = 0) ---
-    bl _parse_statement
-    cbnz x0, Lfor_fail
+    // Save old loop labels for nested-loop restoration
+    adrp x9, current_loop_start@PAGE
+    add x9, x9, current_loop_start@PAGEOFF
+    ldr x27, [x9]
+    adrp x9, current_loop_end@PAGE
+    add x9, x9, current_loop_end@PAGEOFF
+    ldr x28, [x9]
 
-    // Expect comma separator
+    // Parse init once (e.g. int i = 0)
+    bl _parse_statement
+    cbnz x0, Lfor_counted_fail
+
     bl _skip_whitespace
     mov w0, #','
     bl _expect_char
-    cbz x0, Lfor_fail
+    cbz x0, Lfor_counted_fail
 
-    // Save cursor for condition re-eval
+    // Save condition cursor
     adrp x9, cursor_pos@PAGE
     add x9, x9, cursor_pos@PAGEOFF
     ldr x19, [x9]
@@ -1851,8 +1858,32 @@ Lfor_counted_restore:
     add x9, x9, current_line@PAGEOFF
     ldr x20, [x9]
 
-Lfor_iteration:
-    // Restore condition cursor
+    // Allocate labels: start, end, update
+    bl _get_next_label
+    mov x21, x0
+    bl _get_next_label
+    mov x22, x0
+    bl _get_next_label
+    mov x23, x0
+
+    // For `skip`, jump to update label. `stop` still jumps to end label.
+    adrp x9, current_loop_start@PAGE
+    add x9, x9, current_loop_start@PAGEOFF
+    str x23, [x9]
+    adrp x9, current_loop_end@PAGE
+    add x9, x9, current_loop_end@PAGEOFF
+    str x22, [x9]
+
+    // op 36: start label
+    mov x0, #36
+    mov x1, x21
+    mov x2, #0
+    mov x3, #0
+    mov x4, #0
+    bl _record_operation4
+    cbnz x0, Lfor_counted_fail
+
+    // Parse condition once from saved cursor
     adrp x9, cursor_pos@PAGE
     add x9, x9, cursor_pos@PAGEOFF
     str x19, [x9]
@@ -1860,45 +1891,25 @@ Lfor_iteration:
     add x9, x9, current_line@PAGEOFF
     str x20, [x9]
 
-    // --- Parse condition ---
     bl _parse_condition_value
-    cbz x0, Lfor_fail
-    mov x21, x1
+    cbz x0, Lfor_counted_fail
+    mov x26, x1 // condition temp var id
 
-    // Expect comma separator
+    // op 37: branch to end when condition is false
+    mov x0, #37
+    mov x1, x26
+    mov x2, x22
+    mov x3, #0
+    mov x4, #0
+    bl _record_operation4
+    cbnz x0, Lfor_counted_fail
+
     bl _skip_whitespace
     mov w0, #','
     bl _expect_char
-    cbz x0, Lfor_fail
+    cbz x0, Lfor_counted_fail
 
-    // Save update cursor
-    adrp x9, cursor_pos@PAGE
-    add x9, x9, cursor_pos@PAGEOFF
-    ldr x22, [x9]
-    adrp x9, current_line@PAGE
-    add x9, x9, current_line@PAGEOFF
-    ldr x23, [x9]
-
-    // --- Skip over update expression (don't execute yet) ---
-    // We need to find the closing ')' then '{'
-    // First, skip the update text until ')'
-Lfor_skip_update_text:
-    bl _peek_char
-    cbz w0, Lfor_fail
-    cmp w0, #')'
-    b.eq Lfor_update_end
-    bl _advance_char
-    b Lfor_skip_update_text
-
-Lfor_update_end:
-    bl _advance_char // consume ')'
-
-    bl _skip_whitespace
-    mov w0, #'{'
-    bl _expect_char
-    cbz x0, Lfor_fail
-
-    // Save body cursor
+    // Save update cursor for replay after body
     adrp x9, cursor_pos@PAGE
     add x9, x9, cursor_pos@PAGEOFF
     ldr x24, [x9]
@@ -1906,47 +1917,47 @@ Lfor_update_end:
     add x9, x9, current_line@PAGEOFF
     ldr x25, [x9]
 
-    // If condition is false, skip block and done
-    cbz x21, Lfor_skip_block_done
+Lfor_skip_update_text:
+    bl _peek_char
+    cbz w0, Lfor_counted_fail
+    cmp w0, #')'
+    b.eq Lfor_update_end
+    bl _advance_char
+    b Lfor_skip_update_text
 
-    // --- Execute body ---
+Lfor_update_end:
+    bl _advance_char
+
+    bl _skip_whitespace
+    mov w0, #'{'
+    bl _expect_char
+    cbz x0, Lfor_counted_fail
+
 Lfor_body_loop:
     bl _skip_whitespace
     bl _peek_char
     cmp w0, #'}'
     b.eq Lfor_body_done
-    cbz w0, Lwhile_unclosed
+    cbz w0, Lfor_unclosed
     bl _parse_statement
     cbz x0, Lfor_body_loop
-    cmp x0, #2 // stop
-    b.eq Lfor_stop
-    cmp x0, #3 // skip
-    b.eq Lfor_body_skip_rest
-    b Lfor_fail
-
-Lfor_body_skip_rest:
-    bl _skip_block_contents
-    cbnz x0, Lfor_fail
-    b Lfor_exec_update
+    cmp x0, #4
+    b.eq Lfor_counted_return_propagate
+    b Lfor_counted_fail
 
 Lfor_body_done:
     bl _advance_char
 
-Lfor_exec_update:
-    // --- Execute update statement ---
-    // Restore update cursor
-    adrp x9, cursor_pos@PAGE
-    add x9, x9, cursor_pos@PAGEOFF
-    str x22, [x9]
-    adrp x9, current_line@PAGE
-    add x9, x9, current_line@PAGEOFF
-    str x23, [x9]
+    // op 46: update label (target of `skip`)
+    mov x0, #46
+    mov x1, x23
+    mov x2, #0
+    mov x3, #0
+    mov x4, #0
+    bl _record_operation4
+    cbnz x0, Lfor_counted_fail
 
-    // Parse update as a statement (e.g. i += 1)
-    bl _parse_statement
-    cbnz x0, Lfor_fail
-
-    // Restore body cursor for next iteration
+    // Parse update once from saved header cursor
     adrp x9, cursor_pos@PAGE
     add x9, x9, cursor_pos@PAGEOFF
     str x24, [x9]
@@ -1954,19 +1965,67 @@ Lfor_exec_update:
     add x9, x9, current_line@PAGEOFF
     str x25, [x9]
 
-    // Skip the ')' and '{' again by jumping back to condition
-    b Lfor_iteration
+    bl _parse_statement
+    cbnz x0, Lfor_counted_fail
 
-Lfor_stop:
-    bl _skip_block_contents
-    cbnz x0, Lfor_fail
+    // op 38: branch back to start and place end label
+    mov x0, #38
+    mov x1, x21
+    mov x2, x22
+    mov x3, #0
+    mov x4, #0
+    bl _record_operation4
+    cbnz x0, Lfor_counted_fail
+
+    // Restore previous loop labels
+    adrp x9, current_loop_start@PAGE
+    add x9, x9, current_loop_start@PAGEOFF
+    str x27, [x9]
+    adrp x9, current_loop_end@PAGE
+    add x9, x9, current_loop_end@PAGEOFF
+    str x28, [x9]
+
     mov x0, #0
+    b Lfor_return
+
+Lfor_unclosed:
+    adrp x0, msg_expected_char@PAGE
+    add x0, x0, msg_expected_char@PAGEOFF
+    bl _report_error_prefix
+    adrp x0, close_brace_char@PAGE
+    add x0, x0, close_brace_char@PAGEOFF
+    mov x1, #1
+    mov x2, #2
+    bl _write_buffer_fd
+    bl _write_newline_stderr
+    b Lfor_counted_fail
+
+Lfor_counted_return_propagate:
+    // Restore previous loop labels before propagating return
+    adrp x9, current_loop_start@PAGE
+    add x9, x9, current_loop_start@PAGEOFF
+    str x27, [x9]
+    adrp x9, current_loop_end@PAGE
+    add x9, x9, current_loop_end@PAGEOFF
+    str x28, [x9]
+    mov x0, #4
     b Lfor_return
 
 Lfor_skip_block_done:
     bl _skip_block_contents
     cbnz x0, Lfor_fail
     mov x0, #0
+    b Lfor_return
+
+Lfor_counted_fail:
+    // Restore previous loop labels on counted-loop failure
+    adrp x9, current_loop_start@PAGE
+    add x9, x9, current_loop_start@PAGEOFF
+    str x27, [x9]
+    adrp x9, current_loop_end@PAGE
+    add x9, x9, current_loop_end@PAGEOFF
+    str x28, [x9]
+    mov x0, #1
     b Lfor_return
 
 Lfor_fail:

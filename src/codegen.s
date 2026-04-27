@@ -131,6 +131,8 @@ _emit_operation:
     b.eq Lemit_op_cmp_var
     cmp x21, #41
     b.eq Lemit_op_jump
+    cmp x21, #46
+    b.eq Lemit_op_for_update
     cmp x21, #12
     b.le Lemit_op_print_math_imm
     cmp x21, #17
@@ -716,6 +718,26 @@ Lemit_op_jump:
     mov x2, #1
     bl _write_buffer_fd
     
+    b Lemit_op_done
+
+Lemit_op_for_update:
+    // place UPDATE label (op_arg0)
+    adrp x0, asm_label_prefix@PAGE
+    add x0, x0, asm_label_prefix@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+
+    adrp x20, op_arg0@PAGE
+    add x20, x20, op_arg0@PAGEOFF
+    ldr x0, [x20, x19, lsl #3]
+    mov x1, #1
+    bl _write_u64_fd
+
+    adrp x0, asm_label_suffix@PAGE
+    add x0, x0, asm_label_suffix@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+
     b Lemit_op_done
 
 Lemit_op_cmp_imm:
