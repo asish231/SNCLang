@@ -893,43 +893,89 @@ Lstmt_if_ok:
 
 Lstmt_while:
     bl _parse_while_statement_after_keyword
-    cbnz x0, Lstmt_fail
+    cbz x0, Lstmt_while_ok
+    cmp x0, #4
+    b.eq Lstmt_return
+    b Lstmt_fail
+Lstmt_while_ok:
     mov x0, #0
     b Lstmt_return
 
 Lstmt_for:
     bl _parse_for_statement_after_keyword
-    cbnz x0, Lstmt_fail
+    cbz x0, Lstmt_for_ok
+    cmp x0, #4
+    b.eq Lstmt_return
+    b Lstmt_fail
+Lstmt_for_ok:
     mov x0, #0
     b Lstmt_return
 
 Lstmt_stop:
     bl _consume_optional_semicolon
-    // emit jump to loop end
+    LOAD_ADDR x9, loop_context_depth
+    ldr x10, [x9]
+    cbz x10, Lstmt_stop_outside_loop
     LOAD_ADDR x9, current_loop_end
     ldr x1, [x9]
+    cbz x1, Lstmt_stop_no_emit
+    // emit jump to loop end for runtime-coded loops
     mov x0, #41
     mov x2, #0
     mov x3, #0
     bl _record_operation
-    mov x0, #0
+Lstmt_stop_no_emit:
+    mov x0, #2
     b Lstmt_return
+
+Lstmt_stop_outside_loop:
+    LOAD_ADDR x0, msg_loop_control
+    bl _report_error_prefix
+    LOAD_ADDR x0, kw_stop
+    mov x1, #4
+    mov x2, #2
+    bl _write_buffer_fd
+    bl _write_newline_stderr
+    b Lstmt_fail
 
 Lstmt_skip:
     bl _consume_optional_semicolon
-    // emit jump to loop start
+    LOAD_ADDR x9, loop_context_depth
+    ldr x10, [x9]
+    cbz x10, Lstmt_skip_outside_loop
     LOAD_ADDR x9, current_loop_start
     ldr x1, [x9]
+    cbz x1, Lstmt_skip_no_emit
+    // emit jump to loop start/update for runtime-coded loops
     mov x0, #41
     mov x2, #0
     mov x3, #0
     bl _record_operation
-    mov x0, #0
+Lstmt_skip_no_emit:
+    mov x0, #3
     b Lstmt_return
+
+Lstmt_skip_outside_loop:
+    LOAD_ADDR x0, msg_loop_control
+    bl _report_error_prefix
+    LOAD_ADDR x0, kw_skip
+    mov x1, #4
+    mov x2, #2
+    bl _write_buffer_fd
+    bl _write_newline_stderr
+    b Lstmt_fail
 
 Lstmt_match:
     bl _parse_match_statement_after_keyword
-    cbnz x0, Lstmt_fail
+    cbz x0, Lstmt_match_ok
+    cmp x0, #2
+    b.eq Lstmt_return
+    cmp x0, #3
+    b.eq Lstmt_return
+    cmp x0, #4
+    b.eq Lstmt_return
+    b Lstmt_fail
+Lstmt_match_ok:
     mov x0, #0
     b Lstmt_return
 
@@ -1581,6 +1627,10 @@ Lif_body_loop:
     cbz w0, Lif_unclosed
     bl _parse_statement
     cbz x0, Lif_body_loop
+    cmp x0, #2
+    b.eq Lif_return
+    cmp x0, #3
+    b.eq Lif_return
     cmp x0, #4
     b.eq Lif_return_propagate
     b Lif_fail
@@ -1618,6 +1668,10 @@ Lif_else_loop:
     cbz w0, Lif_unclosed
     bl _parse_statement
     cbz x0, Lif_else_loop
+    cmp x0, #2
+    b.eq Lif_return
+    cmp x0, #3
+    b.eq Lif_return
     cmp x0, #4
     b.eq Lif_return_propagate
     b Lif_fail
@@ -1628,6 +1682,10 @@ Lif_check_else_if:
     cbz x0, Lif_fail
     bl _parse_if_statement_after_keyword
     cbz x0, Lif_else_done
+    cmp x0, #2
+    b.eq Lif_return
+    cmp x0, #3
+    b.eq Lif_return
     cmp x0, #4
     b.eq Lif_return_propagate
     b Lif_fail
@@ -1722,6 +1780,7 @@ _parse_while_statement_after_keyword:
     stp x19, x20, [sp, #-16]!
     stp x21, x22, [sp, #-16]!
     stp x23, x24, [sp, #-16]!
+    mov x24, #0
 
     // push old loop labels
     LOAD_ADDR x9, current_loop_start
@@ -1775,6 +1834,11 @@ _parse_while_statement_after_keyword:
     mov w0, #'{'
     bl _expect_char
     cbz x0, Lwhile_fail
+    LOAD_ADDR x9, loop_context_depth
+    ldr x10, [x9]
+    add x10, x10, #1
+    str x10, [x9]
+    mov x24, #1
 
 Lwhile_body_loop:
     bl _skip_whitespace
@@ -1784,15 +1848,35 @@ Lwhile_body_loop:
     cbz w0, Lwhile_unclosed
     bl _parse_statement
     cbz x0, Lwhile_body_loop
+    cmp x0, #2
+    b.eq Lwhile_body_loop
+    cmp x0, #3
+    b.eq Lwhile_body_loop
     cmp x0, #4
     b.eq Lwhile_return_propagate
     b Lwhile_fail
 
 Lwhile_return_propagate:
+    cbz x24, Lwhile_return_restore_only
+    LOAD_ADDR x9, loop_context_depth
+    ldr x10, [x9]
+    sub x10, x10, #1
+    str x10, [x9]
+    mov x24, #0
+Lwhile_return_restore_only:
+    LOAD_ADDR x9, current_loop_start
+    str x19, [x9]
+    LOAD_ADDR x9, current_loop_end
+    str x20, [x9]
     b Lwhile_return
 
 Lwhile_body_done:
     bl _advance_char
+    LOAD_ADDR x9, loop_context_depth
+    ldr x10, [x9]
+    sub x10, x10, #1
+    str x10, [x9]
+    mov x24, #0
 
     // emit op 38 (while end label)
     mov x0, #38
@@ -1822,6 +1906,17 @@ Lwhile_unclosed:
     b Lwhile_fail
 
 Lwhile_fail:
+    cbz x24, Lwhile_fail_restore_only
+    LOAD_ADDR x9, loop_context_depth
+    ldr x10, [x9]
+    sub x10, x10, #1
+    str x10, [x9]
+    mov x24, #0
+Lwhile_fail_restore_only:
+    LOAD_ADDR x9, current_loop_start
+    str x19, [x9]
+    LOAD_ADDR x9, current_loop_end
+    str x20, [x9]
     mov x0, #1
     b Lwhile_return
 
@@ -1844,6 +1939,14 @@ _parse_for_statement_after_keyword:
     stp x23, x24, [sp, #-16]!
     stp x25, x26, [sp, #-16]!
     stp x27, x28, [sp, #-16]!
+    sub sp, sp, #32
+
+    LOAD_ADDR x9, current_loop_start
+    ldr x10, [x9]
+    LOAD_ADDR x9, current_loop_end
+    ldr x11, [x9]
+    stp x10, x11, [sp]
+    str xzr, [sp, #16]
 
     bl _skip_whitespace
     mov w0, #'('
@@ -1871,12 +1974,6 @@ Lfor_counted_restore:
     str x26, [x9]
     LOAD_ADDR x9, current_line
     str x27, [x9]
-
-    // Save old loop labels for nested-loop restoration
-    LOAD_ADDR x9, current_loop_start
-    ldr x27, [x9]
-    LOAD_ADDR x9, current_loop_end
-    ldr x28, [x9]
 
     // Parse init once (e.g. int i = 0)
     bl _parse_statement
@@ -1961,6 +2058,12 @@ Lfor_update_end:
     mov w0, #'{'
     bl _expect_char
     cbz x0, Lfor_counted_fail
+    LOAD_ADDR x9, loop_context_depth
+    ldr x10, [x9]
+    add x10, x10, #1
+    str x10, [x9]
+    mov x10, #1
+    str x10, [sp, #16]
 
 Lfor_body_loop:
     bl _skip_whitespace
@@ -1970,12 +2073,21 @@ Lfor_body_loop:
     cbz w0, Lfor_unclosed
     bl _parse_statement
     cbz x0, Lfor_body_loop
+    cmp x0, #2
+    b.eq Lfor_body_loop
+    cmp x0, #3
+    b.eq Lfor_body_loop
     cmp x0, #4
     b.eq Lfor_counted_return_propagate
     b Lfor_counted_fail
 
 Lfor_body_done:
     bl _advance_char
+    LOAD_ADDR x9, loop_context_depth
+    ldr x10, [x9]
+    sub x10, x10, #1
+    str x10, [x9]
+    str xzr, [sp, #16]
 
     // Save cursor after body to restore it later
     adrp x9, cursor_pos@PAGE
@@ -2021,10 +2133,11 @@ Lfor_body_done:
     cbnz x0, Lfor_counted_fail
 
     // Restore previous loop labels
+    ldp x10, x11, [sp]
     LOAD_ADDR x9, current_loop_start
-    str x27, [x9]
+    str x10, [x9]
     LOAD_ADDR x9, current_loop_end
-    str x28, [x9]
+    str x11, [x9]
 
     mov x0, #0
     b Lfor_return
@@ -2041,38 +2154,72 @@ Lfor_unclosed:
  
  Lfor_counted_return_propagate:
      // Restore previous loop labels before propagating return
-     ldp x0, x1, [sp], #16
-     adrp x9, current_loop_start@PAGE
-     add x9, x9, current_loop_start@PAGEOFF
-     str x0, [x9]
-     adrp x9, current_loop_end@PAGE
-     add x9, x9, current_loop_end@PAGEOFF
-     str x1, [x9]
+     ldr x12, [sp, #16]
+     cbz x12, Lfor_counted_return_restore_labels
+     LOAD_ADDR x9, loop_context_depth
+     ldr x10, [x9]
+     sub x10, x10, #1
+     str x10, [x9]
+     str xzr, [sp, #16]
+Lfor_counted_return_restore_labels:
+     ldp x10, x11, [sp]
+     LOAD_ADDR x9, current_loop_start
+     str x10, [x9]
+     LOAD_ADDR x9, current_loop_end
+     str x11, [x9]
      mov x0, #4
      b Lfor_return
  
  Lfor_skip_block_done:
      bl _skip_block_contents
      cbnz x0, Lfor_fail
+     ldr x12, [sp, #16]
+     cbz x12, Lfor_skip_block_done_no_depth
+     LOAD_ADDR x9, loop_context_depth
+     ldr x10, [x9]
+     sub x10, x10, #1
+     str x10, [x9]
+     str xzr, [sp, #16]
+Lfor_skip_block_done_no_depth:
      mov x0, #0
      b Lfor_return
  
 Lfor_counted_fail:
     // Restore previous loop labels on counted-loop failure
-    ldp x0, x1, [sp], #16
-    adrp x9, current_loop_start@PAGE
-    add x9, x9, current_loop_start@PAGEOFF
-    str x0, [x9]
-    adrp x9, current_loop_end@PAGE
-    add x9, x9, current_loop_end@PAGEOFF
-    str x1, [x9]
+    ldr x12, [sp, #16]
+    cbz x12, Lfor_counted_fail_restore_labels
+    LOAD_ADDR x9, loop_context_depth
+    ldr x10, [x9]
+    sub x10, x10, #1
+    str x10, [x9]
+    str xzr, [sp, #16]
+Lfor_counted_fail_restore_labels:
+    ldp x10, x11, [sp]
+    LOAD_ADDR x9, current_loop_start
+    str x10, [x9]
+    LOAD_ADDR x9, current_loop_end
+    str x11, [x9]
     mov x0, #1
     b Lfor_return
 
 Lfor_fail:
+    ldr x12, [sp, #16]
+    cbz x12, Lfor_fail_restore_labels
+    LOAD_ADDR x9, loop_context_depth
+    ldr x10, [x9]
+    sub x10, x10, #1
+    str x10, [x9]
+    str xzr, [sp, #16]
+Lfor_fail_restore_labels:
+    ldp x10, x11, [sp]
+    LOAD_ADDR x9, current_loop_start
+    str x10, [x9]
+    LOAD_ADDR x9, current_loop_end
+    str x11, [x9]
     mov x0, #1
 
 Lfor_return:
+    add sp, sp, #32
     ldp x27, x28, [sp], #16
     ldp x25, x26, [sp], #16
     ldp x23, x24, [sp], #16
@@ -2097,6 +2244,12 @@ Lfor_in_setup:
     mov w0, #'{'
     bl _expect_char
     cbz x0, Lfor_fail
+    LOAD_ADDR x9, loop_context_depth
+    ldr x10, [x9]
+    add x10, x10, #1
+    str x10, [x9]
+    mov x10, #1
+    str x10, [sp, #16]
 
     LOAD_ADDR x9, cursor_pos
     ldr x22, [x9]
@@ -2187,10 +2340,26 @@ Lfor_in_skip_rest:
 Lfor_in_stop:
     bl _skip_block_contents
     cbnz x0, Lfor_fail
+    ldr x12, [sp, #16]
+    cbz x12, Lfor_in_stop_no_depth
+    LOAD_ADDR x9, loop_context_depth
+    ldr x10, [x9]
+    sub x10, x10, #1
+    str x10, [x9]
+    str xzr, [sp, #16]
+Lfor_in_stop_no_depth:
     mov x0, #0
     b Lfor_return
 
 Lfor_in_done:
+    ldr x12, [sp, #16]
+    cbz x12, Lfor_in_done_no_depth
+    LOAD_ADDR x9, loop_context_depth
+    ldr x10, [x9]
+    sub x10, x10, #1
+    str x10, [x9]
+    str xzr, [sp, #16]
+Lfor_in_done_no_depth:
     mov x0, #0
     b Lfor_return
 
@@ -2476,8 +2645,14 @@ Lmatch_exec_case_loop:
     b.eq Lmatch_exec_case_done
     cbz w0, Lmatch_unclosed
     bl _parse_statement
-    cbnz x0, Lmatch_fail
-    b Lmatch_exec_case_loop
+    cbz x0, Lmatch_exec_case_loop
+    cmp x0, #2
+    b.eq Lmatch_return_propagate
+    cmp x0, #3
+    b.eq Lmatch_return_propagate
+    cmp x0, #4
+    b.eq Lmatch_return_propagate
+    b Lmatch_fail
 
 Lmatch_exec_case_done:
     bl _advance_char
@@ -2503,8 +2678,14 @@ Lmatch_exec_default_loop:
     b.eq Lmatch_exec_default_done
     cbz w0, Lmatch_unclosed
     bl _parse_statement
-    cbnz x0, Lmatch_fail
-    b Lmatch_exec_default_loop
+    cbz x0, Lmatch_exec_default_loop
+    cmp x0, #2
+    b.eq Lmatch_return_propagate
+    cmp x0, #3
+    b.eq Lmatch_return_propagate
+    cmp x0, #4
+    b.eq Lmatch_return_propagate
+    b Lmatch_fail
 
 Lmatch_exec_default_done:
     bl _advance_char
@@ -2528,6 +2709,10 @@ Lmatch_unclosed:
     mov x2, #2
     bl _write_buffer_fd
     bl _write_newline_stderr
+
+Lmatch_return_propagate:
+    // x0 already contains the control-flow code we need to bubble upward.
+    b Lmatch_return
 
 Lmatch_fail:
     mov x0, #1
@@ -4222,9 +4407,16 @@ _call_function:
     stp x23, x24, [sp, #-16]!
     stp x25, x26, [sp, #-16]!
     stp x27, x28, [sp, #-16]!
+    sub sp, sp, #16
 
     mov x19, x0   // name ptr
     mov x20, x1   // name len
+
+    LOAD_ADDR x9, var_scope_base
+    ldr x10, [x9]
+    str x10, [sp]
+    LOAD_ADDR x9, var_count
+    ldr x22, [x9]
 
     // Look up the function
     mov x0, x19
@@ -4233,9 +4425,9 @@ _call_function:
     cbz x0, Lfn_call_unknown
     mov x21, x1   // fn index
 
-    // Save current var count so we can restore after call
-    LOAD_ADDR x9, var_count
-    ldr x22, [x9]  // saved var count
+    // Save the current variable floor so locals can shadow globals.
+    LOAD_ADDR x9, var_scope_base
+    str x22, [x9]
 
     // Get param count
     LOAD_ADDR x9, fn_param_counts
@@ -4391,6 +4583,9 @@ Lfn_call_body_done:
     // Remove param variables (restore var count)
     LOAD_ADDR x9, var_count
     str x22, [x9]
+    LOAD_ADDR x9, var_scope_base
+    ldr x10, [sp]
+    str x10, [x9]
 
     // Clear return flag
     LOAD_ADDR x9, fn_return_flag
@@ -4422,9 +4617,13 @@ Lfn_call_fail:
     // Restore var count on failure too
     LOAD_ADDR x9, var_count
     str x22, [x9]
+    LOAD_ADDR x9, var_scope_base
+    ldr x10, [sp]
+    str x10, [x9]
     mov x0, #1
 
 Lfn_call_return:
+    add sp, sp, #16
     ldp x27, x28, [sp], #16
     ldp x25, x26, [sp], #16
     ldp x23, x24, [sp], #16

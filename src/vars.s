@@ -28,15 +28,39 @@ _define_variable:
     mov x26, x4
     mov x27, x5
 
-    mov x0, x19
-    mov x1, x20
-    bl _lookup_variable
-    cbnz x0, Ldefine_duplicate
-
     LOAD_ADDR x22, var_count
     ldr x23, [x22]
     cmp x23, #512
     b.ge Ldefine_full
+
+    LOAD_ADDR x24, var_scope_base
+    ldr x24, [x24]
+    cmp x23, x24
+    b.eq Ldefine_store
+    sub x28, x23, #1
+
+Ldefine_dup_loop:
+    cmp x28, x24
+    b.lt Ldefine_store
+
+    LOAD_ADDR x9, var_name_lens
+    ldr x10, [x9, x28, lsl #3]
+    cmp x10, x20
+    b.ne Ldefine_dup_next
+
+    LOAD_ADDR x9, var_name_ptrs
+    ldr x11, [x9, x28, lsl #3]
+    mov x0, x19
+    mov x1, x20
+    mov x2, x11
+    bl _match_span_span
+    cbnz x0, Ldefine_duplicate
+
+Ldefine_dup_next:
+    subs x28, x28, #1
+    b Ldefine_dup_loop
+
+Ldefine_store:
 
     LOAD_ADDR x24, var_name_ptrs
     str x19, [x24, x23, lsl #3]
@@ -91,13 +115,14 @@ _set_variable:
     mov x19, x0
     mov x20, x1
     mov x21, x2
-    mov x22, #0
     LOAD_ADDR x23, var_count
     ldr x23, [x23]
+    cbz x23, Lset_unknown
+    sub x22, x23, #1
 
 Lset_loop:
-    cmp x22, x23
-    b.ge Lset_unknown
+    cmp x22, #-1
+    b.eq Lset_unknown
 
     LOAD_ADDR x9, var_name_lens
     ldr x10, [x9, x22, lsl #3]
@@ -122,7 +147,7 @@ Lset_loop:
     b Lset_return
 
 Lset_next:
-    add x22, x22, #1
+    sub x22, x22, #1
     b Lset_loop
 
 Lset_unknown:
@@ -161,13 +186,14 @@ _lookup_variable:
 
     mov x19, x0
     mov x20, x1
-    mov x21, #0
     LOAD_ADDR x22, var_count
     ldr x22, [x22]
+    cbz x22, Llookup_fail
+    sub x21, x22, #1
 
 Llookup_loop:
-    cmp x21, x22
-    b.ge Llookup_fail
+    cmp x21, #-1
+    b.eq Llookup_fail
 
     LOAD_ADDR x9, var_name_lens
     ldr x10, [x9, x21, lsl #3]
@@ -193,7 +219,7 @@ Llookup_loop:
     b Llookup_return
 
 Llookup_next:
-    add x21, x21, #1
+    sub x21, x21, #1
     b Llookup_loop
 
 Llookup_fail:
@@ -220,13 +246,14 @@ _set_variable_full:
     mov x21, x2
     mov x25, x3
     mov x26, x4
-    mov x22, #0
     LOAD_ADDR x23, var_count
     ldr x23, [x23]
+    cbz x23, Lset_full_unknown
+    sub x22, x23, #1
 
 Lset_full_loop:
-    cmp x22, x23
-    b.ge Lset_full_unknown
+    cmp x22, #-1
+    b.eq Lset_full_unknown
 
     LOAD_ADDR x9, var_name_lens
     ldr x10, [x9, x22, lsl #3]
@@ -255,7 +282,7 @@ Lset_full_loop:
     b Lset_full_return
 
 Lset_full_next:
-    add x22, x22, #1
+    sub x22, x22, #1
     b Lset_full_loop
 
 Lset_full_unknown:

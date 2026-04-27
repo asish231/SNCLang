@@ -1,0 +1,10 @@
+int value = 99
+
+fn show(int value) {
+    print(value)
+}
+
+fn main() {
+    show(7)
+    print(value)
+}

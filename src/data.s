@@ -156,6 +156,7 @@
 .global label_counter
 .global current_loop_start
 .global current_loop_end
+.global loop_context_depth
 .global buffer
 .global number_buffer
 .global source_ptr
@@ -197,6 +198,7 @@
 .global fn_return_value
 .global fn_return_length
 .global fn_return_flag
+.global var_scope_base
 .global saved_var_count
 
 msg_usage:         .asciz "usage: ./snc <source.sn>\n"
@@ -212,6 +214,7 @@ msg_expected_char: .asciz "error: expected character on "
 msg_unknown_stmt:  .asciz "error: unknown statement on "
 msg_unknown_var:   .asciz "error: unknown variable on "
 msg_duplicate_var: .asciz "error: duplicate variable on "
+msg_loop_control:  .asciz "error: loop control outside loop on "
 msg_divide_zero:   .asciz "error: division by zero on "
 msg_const_assign:  .asciz "error: cannot assign to const on "
 msg_expected_type: .asciz "error: expected type on "
@@ -516,6 +519,7 @@ op_count:       .space 8
 label_counter:  .space 8
 current_loop_start: .space 8
 current_loop_end: .space 8
+loop_context_depth: .space 8
 var_name_ptrs:  .space 4096        // 512 variables * 8 bytes
 var_name_lens:  .space 4096
 var_values:     .space 4096
@@ -548,4 +552,5 @@ fn_return_decl_lengths: .space 512
 fn_return_value: .space 8
 fn_return_length: .space 8
 fn_return_flag:  .space 8
+var_scope_base: .space 8
 saved_var_count: .space 8

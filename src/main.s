@@ -56,6 +56,14 @@ Lmain_have_input:
     str x1, [x2]
     LOAD_ADDR x2, label_counter
     str x1, [x2]
+    LOAD_ADDR x2, current_loop_start
+    str x1, [x2]
+    LOAD_ADDR x2, current_loop_end
+    str x1, [x2]
+    LOAD_ADDR x2, loop_context_depth
+    str x1, [x2]
+    LOAD_ADDR x2, var_scope_base
+    str x1, [x2]
 
     bl _parse_program
     cbnz x0, Lmain_fail
