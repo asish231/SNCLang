@@ -1,3 +1,4 @@
+#include "platform.inc"
 .data
 .global msg_usage
 .global msg_open_error
@@ -232,37 +233,89 @@ kw_return:         .asciz "return"
 asm_sub_sp_prefix:
     .asciz "    sub sp, sp, #"
 asm_header:
+#ifdef _WIN32
+    .asciz ".global main\n.align 4\n.extern printf\n\n.text\nmain:\n    stp x29, x30, [sp, #-16]!\n    mov x29, sp\n"
+#else
     .asciz ".global _main\n.align 4\n.extern _printf\n\n.text\n_main:\n    stp x29, x30, [sp, #-16]!\n    mov x29, sp\n"
+#endif
 asm_print_fmt_int_adrp:
+#ifdef _WIN32
+    .asciz "    adrp x0, print_fmt_int\n    add x0, x0, :lo12:print_fmt_int\n"
+#else
     .asciz "    adrp x0, print_fmt_int@PAGE\n    add x0, x0, print_fmt_int@PAGEOFF\n"
+#endif
 asm_print_fmt_str_adrp:
+#ifdef _WIN32
+    .asciz "    adrp x0, print_fmt_str\n    add x0, x0, :lo12:print_fmt_str\n"
+#else
     .asciz "    adrp x0, print_fmt_str@PAGE\n    add x0, x0, print_fmt_str@PAGEOFF\n"
+#endif
 asm_print_val_adrp:
     .asciz "    adrp x9, print_val_"
 asm_print_val_ldr:
+#ifdef _WIN32
+    .asciz "\n    ldr x1, [x9, :lo12:print_val_"
+#else
     .asciz "@PAGE\n    ldr x1, [x9, print_val_"
+#endif
 asm_print_str_val_adrp:
     .asciz "    adrp x1, print_val_"
 asm_print_str_val_add:
+#ifdef _WIN32
+    .asciz "\n    add x1, x1, :lo12:print_val_"
+#else
     .asciz "@PAGE\n    add x1, x1, print_val_"
+#endif
 asm_print_call_suffix_stack:
+#ifdef _WIN32
+    .asciz "]\n    sub sp, sp, #16\n    str x1, [sp]\n    bl printf\n    add sp, sp, #16\n"
+#else
     .asciz "]\n    sub sp, sp, #16\n    str x1, [sp]\n    bl _printf\n    add sp, sp, #16\n"
+#endif
 asm_print_call_suffix:
+#ifdef _WIN32
+    .asciz "]\n    sub sp, sp, #16\n    str x1, [sp]\n    bl printf\n    add sp, sp, #16\n"
+#else
     .asciz "@PAGEOFF]\n    sub sp, sp, #16\n    str x1, [sp]\n    bl _printf\n    add sp, sp, #16\n"
+#endif
 asm_print_call_stack:
+#ifdef _WIN32
+    .asciz "\n    sub sp, sp, #16\n    str x1, [sp]\n    bl printf\n    add sp, sp, #16\n"
+#else
     .asciz "@PAGEOFF\n    sub sp, sp, #16\n    str x1, [sp]\n    bl _printf\n    add sp, sp, #16\n"
+#endif
 asm_print_stack_only:
+#ifdef _WIN32
+    .asciz "    sub sp, sp, #16\n    str x1, [sp]\n    bl printf\n    add sp, sp, #16\n"
+#else
     .asciz "    sub sp, sp, #16\n    str x1, [sp]\n    bl _printf\n    add sp, sp, #16\n"
+#endif
 asm_store_val_adrp:
     .asciz "    adrp x9, store_val_"
 asm_store_val_ldr:
+#ifdef _WIN32
+    .asciz "\n    ldr x10, [x9, :lo12:store_val_"
+#else
     .asciz "@PAGE\n    ldr x10, [x9, store_val_"
+#endif
 asm_store_var_adrp:
+#ifdef _WIN32
+    .asciz "]\n    adrp x11, var_slot_"
+#else
     .asciz "@PAGEOFF]\n    adrp x11, var_slot_"
+#endif
 asm_store_var_str:
+#ifdef _WIN32
+    .asciz "]\n    stur x10, [x29, #-"
+#else
     .asciz "@PAGEOFF]\n    stur x10, [x29, #-"
+#endif
 asm_store_var_suffix:
+#ifdef _WIN32
+    .asciz "]\n"
+#else
     .asciz "@PAGEOFF]\n"
+#endif
 asm_close_bracket:
     .asciz "]\n"
 asm_print_var_adrp:

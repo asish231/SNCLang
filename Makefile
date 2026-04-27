@@ -1,77 +1,94 @@
-OBJS = src/main.o src/parser.o src/vars.o src/codegen.o src/lexer.o src/utils.o src/data.o
+CC ?= clang
+ASFLAGS ?= -x assembler-with-cpp
+LDFLAGS ?=
+TMPDIR ?= .build/tmp
+SRCS = src/main.s src/parser.s src/vars.s src/codegen.s src/lexer.s src/utils.s src/data.s
+OBJS = $(SRCS:.s=.o)
 
-snc: $(OBJS)
-	clang $(OBJS) -o snc
+ifeq ($(OS),Windows_NT)
+EXEEXT := .exe
+else
+EXEEXT :=
+endif
 
-src/%.o: src/%.s
-	clang -c $< -o $@
+SNC = snc$(EXEEXT)
 
-run: snc
-	./snc examples/math.sn
+$(TMPDIR):
+	mkdir -p $(TMPDIR)
 
-example: snc
-	./snc examples/math.sn > /tmp/snc_example.s
-	clang /tmp/snc_example.s -o /tmp/snc_example
-	/tmp/snc_example
+$(SNC): $(OBJS)
+	$(CC) $(OBJS) $(LDFLAGS) -o $(SNC)
 
-test: snc
-	./snc examples/math.sn > /tmp/snc_math.s
-	clang /tmp/snc_math.s -o /tmp/snc_math
-	/tmp/snc_math
-	./snc examples/grouping.sn > /tmp/snc_grouping.s
-	clang /tmp/snc_grouping.s -o /tmp/snc_grouping
-	/tmp/snc_grouping
-	./snc examples/spec_slice.sn > /tmp/snc_spec_slice.s
-	clang /tmp/snc_spec_slice.s -o /tmp/snc_spec_slice
-	/tmp/snc_spec_slice
-	./snc examples/if_else.sn > /tmp/snc_if_else.s
-	clang /tmp/snc_if_else.s -o /tmp/snc_if_else
-	/tmp/snc_if_else
-	./snc examples/state_logic.sn > /tmp/snc_state_logic.s
-	clang /tmp/snc_state_logic.s -o /tmp/snc_state_logic
-	/tmp/snc_state_logic
-	./snc examples/strings.sn > /tmp/snc_strings.s
-	clang /tmp/snc_strings.s -o /tmp/snc_strings
-	/tmp/snc_strings
-	./snc examples/else_if.sn > /tmp/snc_else_if.s
-	clang /tmp/snc_else_if.s -o /tmp/snc_else_if
-	/tmp/snc_else_if
-	./snc examples/while_loop.sn > /tmp/snc_while_loop.s
-	clang /tmp/snc_while_loop.s -o /tmp/snc_while_loop
-	/tmp/snc_while_loop
-	./snc examples/runtime_vars.sn > /tmp/snc_runtime_vars.s
-	clang /tmp/snc_runtime_vars.s -o /tmp/snc_runtime_vars
-	/tmp/snc_runtime_vars
-	./snc examples/runtime_exprs.sn > /tmp/snc_runtime_exprs.s
-	clang /tmp/snc_runtime_exprs.s -o /tmp/snc_runtime_exprs
-	/tmp/snc_runtime_exprs
-	./snc examples/runtime_var_math.sn > /tmp/snc_runtime_var_math.s
-	clang /tmp/snc_runtime_var_math.s -o /tmp/snc_runtime_var_math
-	/tmp/snc_runtime_var_math
-	./snc examples/runtime_target_math.sn > /tmp/snc_runtime_target_math.s
-	clang /tmp/snc_runtime_target_math.s -o /tmp/snc_runtime_target_math
-	/tmp/snc_runtime_target_math
-	./snc examples/spec_batch.sn > /tmp/snc_spec_batch.s
-	clang /tmp/snc_spec_batch.s -o /tmp/snc_spec_batch
-	/tmp/snc_spec_batch
-	./snc examples/for_loop.sn > /tmp/snc_for_loop.s
-	clang /tmp/snc_for_loop.s -o /tmp/snc_for_loop
-	/tmp/snc_for_loop
-	./snc examples/functions.sn > /tmp/snc_functions.s
-	clang /tmp/snc_functions.s -o /tmp/snc_functions
-	/tmp/snc_functions
-	./snc examples/decimals.sn > /tmp/snc_decimals.s
-	clang /tmp/snc_decimals.s -o /tmp/snc_decimals
-	/tmp/snc_decimals
-	./snc examples/decimals_fractional.sn > /tmp/snc_decimals_fractional.s
-	clang /tmp/snc_decimals_fractional.s -o /tmp/snc_decimals_fractional
-	/tmp/snc_decimals_fractional
-	./snc examples/decimals_invalid_type.sn >/tmp/snc_dec_invalid_type.s 2>/tmp/snc_dec_invalid_type.err; test $$? -ne 0
-	./snc examples/decimals_invalid_literal.sn >/tmp/snc_dec_invalid_literal.s 2>/tmp/snc_dec_invalid_literal.err; test $$? -ne 0
-	./snc examples/decimals_invalid_scale.sn >/tmp/snc_dec_invalid_scale.s 2>/tmp/snc_dec_invalid_scale.err; test $$? -ne 0
-	./snc examples/decimals_invalid_mixed.sn >/tmp/snc_dec_invalid_mixed.s 2>/tmp/snc_dec_invalid_mixed.err; test $$? -ne 0
-	./snc examples/decimals_invalid_mod.sn >/tmp/snc_dec_invalid_mod.s 2>/tmp/snc_dec_invalid_mod.err; test $$? -ne 0
-	./snc examples/decimals_invalid_arg.sn >/tmp/snc_dec_invalid_arg.s 2>/tmp/snc_dec_invalid_arg.err; test $$? -ne 0
+src/%.o: src/%.s src/platform.inc
+	$(CC) $(ASFLAGS) -c $< -o $@
+
+run: $(SNC)
+	./$(SNC) examples/math.sn
+
+example: $(SNC) | $(TMPDIR)
+	./$(SNC) examples/math.sn > $(TMPDIR)/snc_example.s
+	$(CC) $(TMPDIR)/snc_example.s -o $(TMPDIR)/snc_example$(EXEEXT)
+	./$(TMPDIR)/snc_example$(EXEEXT)
+
+test: $(SNC) | $(TMPDIR)
+	./$(SNC) examples/math.sn > $(TMPDIR)/snc_math.s
+	$(CC) $(TMPDIR)/snc_math.s -o $(TMPDIR)/snc_math$(EXEEXT)
+	./$(TMPDIR)/snc_math$(EXEEXT)
+	./$(SNC) examples/grouping.sn > $(TMPDIR)/snc_grouping.s
+	$(CC) $(TMPDIR)/snc_grouping.s -o $(TMPDIR)/snc_grouping$(EXEEXT)
+	./$(TMPDIR)/snc_grouping$(EXEEXT)
+	./$(SNC) examples/spec_slice.sn > $(TMPDIR)/snc_spec_slice.s
+	$(CC) $(TMPDIR)/snc_spec_slice.s -o $(TMPDIR)/snc_spec_slice$(EXEEXT)
+	./$(TMPDIR)/snc_spec_slice$(EXEEXT)
+	./$(SNC) examples/if_else.sn > $(TMPDIR)/snc_if_else.s
+	$(CC) $(TMPDIR)/snc_if_else.s -o $(TMPDIR)/snc_if_else$(EXEEXT)
+	./$(TMPDIR)/snc_if_else$(EXEEXT)
+	./$(SNC) examples/state_logic.sn > $(TMPDIR)/snc_state_logic.s
+	$(CC) $(TMPDIR)/snc_state_logic.s -o $(TMPDIR)/snc_state_logic$(EXEEXT)
+	./$(TMPDIR)/snc_state_logic$(EXEEXT)
+	./$(SNC) examples/strings.sn > $(TMPDIR)/snc_strings.s
+	$(CC) $(TMPDIR)/snc_strings.s -o $(TMPDIR)/snc_strings$(EXEEXT)
+	./$(TMPDIR)/snc_strings$(EXEEXT)
+	./$(SNC) examples/else_if.sn > $(TMPDIR)/snc_else_if.s
+	$(CC) $(TMPDIR)/snc_else_if.s -o $(TMPDIR)/snc_else_if$(EXEEXT)
+	./$(TMPDIR)/snc_else_if$(EXEEXT)
+	./$(SNC) examples/while_loop.sn > $(TMPDIR)/snc_while_loop.s
+	$(CC) $(TMPDIR)/snc_while_loop.s -o $(TMPDIR)/snc_while_loop$(EXEEXT)
+	./$(TMPDIR)/snc_while_loop$(EXEEXT)
+	./$(SNC) examples/runtime_vars.sn > $(TMPDIR)/snc_runtime_vars.s
+	$(CC) $(TMPDIR)/snc_runtime_vars.s -o $(TMPDIR)/snc_runtime_vars$(EXEEXT)
+	./$(TMPDIR)/snc_runtime_vars$(EXEEXT)
+	./$(SNC) examples/runtime_exprs.sn > $(TMPDIR)/snc_runtime_exprs.s
+	$(CC) $(TMPDIR)/snc_runtime_exprs.s -o $(TMPDIR)/snc_runtime_exprs$(EXEEXT)
+	./$(TMPDIR)/snc_runtime_exprs$(EXEEXT)
+	./$(SNC) examples/runtime_var_math.sn > $(TMPDIR)/snc_runtime_var_math.s
+	$(CC) $(TMPDIR)/snc_runtime_var_math.s -o $(TMPDIR)/snc_runtime_var_math$(EXEEXT)
+	./$(TMPDIR)/snc_runtime_var_math$(EXEEXT)
+	./$(SNC) examples/runtime_target_math.sn > $(TMPDIR)/snc_runtime_target_math.s
+	$(CC) $(TMPDIR)/snc_runtime_target_math.s -o $(TMPDIR)/snc_runtime_target_math$(EXEEXT)
+	./$(TMPDIR)/snc_runtime_target_math$(EXEEXT)
+	./$(SNC) examples/spec_batch.sn > $(TMPDIR)/snc_spec_batch.s
+	$(CC) $(TMPDIR)/snc_spec_batch.s -o $(TMPDIR)/snc_spec_batch$(EXEEXT)
+	./$(TMPDIR)/snc_spec_batch$(EXEEXT)
+	./$(SNC) examples/for_loop.sn > $(TMPDIR)/snc_for_loop.s
+	$(CC) $(TMPDIR)/snc_for_loop.s -o $(TMPDIR)/snc_for_loop$(EXEEXT)
+	./$(TMPDIR)/snc_for_loop$(EXEEXT)
+	./$(SNC) examples/functions.sn > $(TMPDIR)/snc_functions.s
+	$(CC) $(TMPDIR)/snc_functions.s -o $(TMPDIR)/snc_functions$(EXEEXT)
+	./$(TMPDIR)/snc_functions$(EXEEXT)
+	./$(SNC) examples/decimals.sn > $(TMPDIR)/snc_decimals.s
+	$(CC) $(TMPDIR)/snc_decimals.s -o $(TMPDIR)/snc_decimals$(EXEEXT)
+	./$(TMPDIR)/snc_decimals$(EXEEXT)
+	./$(SNC) examples/decimals_fractional.sn > $(TMPDIR)/snc_decimals_fractional.s
+	$(CC) $(TMPDIR)/snc_decimals_fractional.s -o $(TMPDIR)/snc_decimals_fractional$(EXEEXT)
+	./$(TMPDIR)/snc_decimals_fractional$(EXEEXT)
+	./$(SNC) examples/decimals_invalid_type.sn >$(TMPDIR)/snc_dec_invalid_type.s 2>$(TMPDIR)/snc_dec_invalid_type.err; test $$? -ne 0
+	./$(SNC) examples/decimals_invalid_literal.sn >$(TMPDIR)/snc_dec_invalid_literal.s 2>$(TMPDIR)/snc_dec_invalid_literal.err; test $$? -ne 0
+	./$(SNC) examples/decimals_invalid_scale.sn >$(TMPDIR)/snc_dec_invalid_scale.s 2>$(TMPDIR)/snc_dec_invalid_scale.err; test $$? -ne 0
+	./$(SNC) examples/decimals_invalid_mixed.sn >$(TMPDIR)/snc_dec_invalid_mixed.s 2>$(TMPDIR)/snc_dec_invalid_mixed.err; test $$? -ne 0
+	./$(SNC) examples/decimals_invalid_mod.sn >$(TMPDIR)/snc_dec_invalid_mod.s 2>$(TMPDIR)/snc_dec_invalid_mod.err; test $$? -ne 0
+	./$(SNC) examples/decimals_invalid_arg.sn >$(TMPDIR)/snc_dec_invalid_arg.s 2>$(TMPDIR)/snc_dec_invalid_arg.err; test $$? -ne 0
 
 clean:
-	rm -f snc src/*.o
+	rm -f $(SNC) src/*.o
+	rm -rf .build

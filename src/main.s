@@ -1,3 +1,4 @@
+#include "platform.inc"
 .global _main
 .align 4
 
@@ -21,8 +22,7 @@ _main:
     cmp x19, #2
     b.ge Lmain_have_input
 
-    adrp x0, msg_usage@PAGE
-    add x0, x0, msg_usage@PAGEOFF
+    LOAD_ADDR x0, msg_usage
     mov x1, #2
     bl _write_cstr_fd
     mov w0, #1
@@ -35,86 +35,67 @@ Lmain_have_input:
     b.lt Lmain_fail
     mov x19, x0
 
-    adrp x0, buffer@PAGE
-    add x0, x0, buffer@PAGEOFF
+    LOAD_ADDR x0, buffer
     mov x1, x19
     bl _set_source
 
-    adrp x0, zero_qword@PAGE
-    add x0, x0, zero_qword@PAGEOFF
+    LOAD_ADDR x0, zero_qword
     ldr x1, [x0]
-    adrp x2, cursor_pos@PAGE
-    add x2, x2, cursor_pos@PAGEOFF
+    LOAD_ADDR x2, cursor_pos
     str x1, [x2]
-    adrp x2, current_line@PAGE
-    add x2, x2, current_line@PAGEOFF
+    LOAD_ADDR x2, current_line
     mov x3, #1
     str x3, [x2]
-    adrp x2, var_count@PAGE
-    add x2, x2, var_count@PAGEOFF
+    LOAD_ADDR x2, var_count
     str x1, [x2]
-    adrp x2, print_count@PAGE
-    add x2, x2, print_count@PAGEOFF
+    LOAD_ADDR x2, print_count
     str x1, [x2]
-    adrp x2, fn_count@PAGE
-    add x2, x2, fn_count@PAGEOFF
+    LOAD_ADDR x2, fn_count
     str x1, [x2]
-    adrp x2, op_count@PAGE
-    add x2, x2, op_count@PAGEOFF
+    LOAD_ADDR x2, op_count
     str x1, [x2]
-    adrp x2, label_counter@PAGE
-    add x2, x2, label_counter@PAGEOFF
+    LOAD_ADDR x2, label_counter
     str x1, [x2]
 
     bl _parse_program
     cbnz x0, Lmain_fail
 
     // Auto-call main() if it was defined
-    adrp x9, fn_count@PAGE
-    add x9, x9, fn_count@PAGEOFF
+    LOAD_ADDR x9, fn_count
     ldr x9, [x9]
     cbz x9, Lmain_no_main_fn
 
     // Look up "main"
-    adrp x0, kw_main@PAGE
-    add x0, x0, kw_main@PAGEOFF
+    LOAD_ADDR x0, kw_main
     bl _cstring_length
     mov x1, x0
-    adrp x0, kw_main@PAGE
-    add x0, x0, kw_main@PAGEOFF
+    LOAD_ADDR x0, kw_main
     bl _lookup_function
     cbz x0, Lmain_no_main_fn
     // x1 = fn index
     mov x19, x1
 
     // Save current cursor
-    adrp x9, cursor_pos@PAGE
-    add x9, x9, cursor_pos@PAGEOFF
+    LOAD_ADDR x9, cursor_pos
     ldr x20, [x9]
 
     // Clear return flag
-    adrp x9, fn_return_flag@PAGE
-    add x9, x9, fn_return_flag@PAGEOFF
+    LOAD_ADDR x9, fn_return_flag
     str xzr, [x9]
 
     // Jump cursor to function body
-    adrp x9, fn_body_cursors@PAGE
-    add x9, x9, fn_body_cursors@PAGEOFF
+    LOAD_ADDR x9, fn_body_cursors
     ldr x10, [x9, x19, lsl #3]
-    adrp x9, cursor_pos@PAGE
-    add x9, x9, cursor_pos@PAGEOFF
+    LOAD_ADDR x9, cursor_pos
     str x10, [x9]
-    adrp x9, fn_body_lines@PAGE
-    add x9, x9, fn_body_lines@PAGEOFF
+    LOAD_ADDR x9, fn_body_lines
     ldr x10, [x9, x19, lsl #3]
-    adrp x9, current_line@PAGE
-    add x9, x9, current_line@PAGEOFF
+    LOAD_ADDR x9, current_line
     str x10, [x9]
 
     // Execute function body
 Lmain_fn_body_loop:
-    adrp x9, fn_return_flag@PAGE
-    add x9, x9, fn_return_flag@PAGEOFF
+    LOAD_ADDR x9, fn_return_flag
     ldr x10, [x9]
     cbnz x10, Lmain_fn_body_done
 
@@ -132,8 +113,7 @@ Lmain_fn_body_loop:
 
 Lmain_fn_body_done:
     // Clear return flag
-    adrp x9, fn_return_flag@PAGE
-    add x9, x9, fn_return_flag@PAGEOFF
+    LOAD_ADDR x9, fn_return_flag
     str xzr, [x9]
 
 Lmain_no_main_fn:
@@ -171,8 +151,7 @@ _load_file:
     ret
 
 Lload_open_failed:
-    adrp x0, msg_open_error@PAGE
-    add x0, x0, msg_open_error@PAGEOFF
+    LOAD_ADDR x0, msg_open_error
     mov x1, #2
     bl _write_cstr_fd
     mov x0, x19
@@ -193,8 +172,7 @@ _read_into_buffer:
 
     mov x19, x0
     mov x20, #0
-    adrp x21, buffer@PAGE
-    add x21, x21, buffer@PAGEOFF
+    LOAD_ADDR x21, buffer
 
 Lread_loop:
      mov x22, #65535
@@ -215,8 +193,7 @@ Lread_loop:
      b Lread_loop
 
 Lbuffer_full:
-    adrp x0, msg_truncated@PAGE
-    add x0, x0, msg_truncated@PAGEOFF
+    LOAD_ADDR x0, msg_truncated
     mov x1, #2
     bl _write_cstr_fd
 
@@ -230,8 +207,7 @@ Lread_done:
     ret
 
 Lread_failed:
-    adrp x0, msg_read_error@PAGE
-    add x0, x0, msg_read_error@PAGEOFF
+    LOAD_ADDR x0, msg_read_error
     mov x1, #2
     bl _write_cstr_fd
     mov x0, #-1
@@ -241,10 +217,8 @@ Lread_failed:
     ret
 
 _set_source:
-    adrp x2, source_ptr@PAGE
-    add x2, x2, source_ptr@PAGEOFF
+    LOAD_ADDR x2, source_ptr
     str x0, [x2]
-    adrp x2, source_len@PAGE
-    add x2, x2, source_len@PAGEOFF
+    LOAD_ADDR x2, source_len
     str x1, [x2]
     ret

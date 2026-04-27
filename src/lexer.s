@@ -1,3 +1,4 @@
+#include "platform.inc"
  .text
  .align 4
  .global _skip_whitespace
@@ -74,16 +75,13 @@ Lskip_done:
     ret
 
 _peek_char:
-    adrp x9, cursor_pos@PAGE
-    add x9, x9, cursor_pos@PAGEOFF
+    LOAD_ADDR x9, cursor_pos
     ldr x10, [x9]
-    adrp x11, source_len@PAGE
-    add x11, x11, source_len@PAGEOFF
+    LOAD_ADDR x11, source_len
     ldr x11, [x11]
     cmp x10, x11
     b.ge Lpeek_eof
-    adrp x12, source_ptr@PAGE
-    add x12, x12, source_ptr@PAGEOFF
+    LOAD_ADDR x12, source_ptr
     ldr x12, [x12]
     ldrb w0, [x12, x10]
     ret
@@ -93,17 +91,14 @@ Lpeek_eof:
     ret
 
 _peek_next_char:
-    adrp x9, cursor_pos@PAGE
-    add x9, x9, cursor_pos@PAGEOFF
+    LOAD_ADDR x9, cursor_pos
     ldr x10, [x9]
     add x10, x10, #1
-    adrp x11, source_len@PAGE
-    add x11, x11, source_len@PAGEOFF
+    LOAD_ADDR x11, source_len
     ldr x11, [x11]
     cmp x10, x11
     b.ge Lpeek_next_eof
-    adrp x12, source_ptr@PAGE
-    add x12, x12, source_ptr@PAGEOFF
+    LOAD_ADDR x12, source_ptr
     ldr x12, [x12]
     ldrb w0, [x12, x10]
     ret
@@ -121,15 +116,13 @@ _advance_char:
 
     cmp w0, #10
     b.ne Ladvance_no_newline
-    adrp x9, current_line@PAGE
-    add x9, x9, current_line@PAGEOFF
+    LOAD_ADDR x9, current_line
     ldr x10, [x9]
     add x10, x10, #1
     str x10, [x9]
 
 Ladvance_no_newline:
-    adrp x9, cursor_pos@PAGE
-    add x9, x9, cursor_pos@PAGEOFF
+    LOAD_ADDR x9, cursor_pos
     ldr x10, [x9]
     add x10, x10, #1
     str x10, [x9]
@@ -139,21 +132,17 @@ Ladvance_done:
     ret
 
 _get_cursor_ptr:
-    adrp x9, source_ptr@PAGE
-    add x9, x9, source_ptr@PAGEOFF
+    LOAD_ADDR x9, source_ptr
     ldr x9, [x9]
-    adrp x10, cursor_pos@PAGE
-    add x10, x10, cursor_pos@PAGEOFF
+    LOAD_ADDR x10, cursor_pos
     ldr x10, [x10]
     add x0, x9, x10
     ret
 
 _is_eof:
-    adrp x9, cursor_pos@PAGE
-    add x9, x9, cursor_pos@PAGEOFF
+    LOAD_ADDR x9, cursor_pos
     ldr x9, [x9]
-    adrp x10, source_len@PAGE
-    add x10, x10, source_len@PAGEOFF
+    LOAD_ADDR x10, source_len
     ldr x10, [x10]
     cmp x9, x10
     cset x0, hs

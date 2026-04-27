@@ -1,3 +1,4 @@
+#include "platform.inc"
  .text
  .align 4
  .global _match_cstr_span
@@ -76,17 +77,14 @@ _report_error_prefix:
     mov x19, x0
     mov x1, #2
     bl _write_cstr_fd
-    adrp x0, msg_on_line@PAGE
-    add x0, x0, msg_on_line@PAGEOFF
+    LOAD_ADDR x0, msg_on_line
     mov x1, #2
     bl _write_cstr_fd
-    adrp x9, current_line@PAGE
-    add x9, x9, current_line@PAGEOFF
+    LOAD_ADDR x9, current_line
     ldr x0, [x9]
     mov x1, #2
     bl _write_u64_fd
-    adrp x0, msg_colon_space@PAGE
-    add x0, x0, msg_colon_space@PAGEOFF
+    LOAD_ADDR x0, msg_colon_space
     mov x1, #2
     bl _write_cstr_fd
 
@@ -133,8 +131,7 @@ Lwrite_buffer_done:
     ret
 
 _write_newline_stderr:
-    adrp x0, newline_char@PAGE
-    add x0, x0, newline_char@PAGEOFF
+    LOAD_ADDR x0, newline_char
     mov x1, #1
     mov x2, #2
     b _write_buffer_fd
@@ -147,8 +144,7 @@ _write_u64_fd:
 
     mov x19, x0
     mov x20, x1
-    adrp x21, number_buffer@PAGE
-    add x21, x21, number_buffer@PAGEOFF
+    LOAD_ADDR x21, number_buffer
     add x22, x21, #31
     mov x9, #0
 
@@ -195,8 +191,7 @@ _write_i64_fd:
     mov x20, x1
     cmp x19, #0
     b.ge Lwrite_i64_positive
-    adrp x0, single_char@PAGE
-    add x0, x0, single_char@PAGEOFF
+    LOAD_ADDR x0, single_char
     mov w9, #'-'
     strb w9, [x0]
     mov x1, #1
@@ -226,8 +221,7 @@ _write_decimal_raw_fd:
 
     cmp x19, #0
     b.ge Lwrite_dec_abs_ready
-    adrp x0, single_char@PAGE
-    add x0, x0, single_char@PAGEOFF
+    LOAD_ADDR x0, single_char
     mov w9, #'-'
     strb w9, [x0]
     mov x1, #1
@@ -254,16 +248,14 @@ Lwrite_dec_pow_done:
     mov x1, x21
     bl _write_u64_fd
 
-    adrp x0, single_char@PAGE
-    add x0, x0, single_char@PAGEOFF
+    LOAD_ADDR x0, single_char
     mov w9, #'.'
     strb w9, [x0]
     mov x1, #1
     mov x2, x21
     bl _write_buffer_fd
 
-    adrp x9, number_buffer@PAGE
-    add x9, x9, number_buffer@PAGEOFF
+    LOAD_ADDR x9, number_buffer
     add x10, x9, #31
     mov x11, #0
     mov x12, x24
@@ -293,8 +285,7 @@ Lwrite_dec_frac_ready:
     mov w13, #'0'
 Lwrite_dec_zero_pad_loop:
     cbz x12, Lwrite_dec_frac_emit
-    adrp x0, single_char@PAGE
-    add x0, x0, single_char@PAGEOFF
+    LOAD_ADDR x0, single_char
     strb w13, [x0]
     mov x1, #1
     mov x2, x21
@@ -336,8 +327,7 @@ Lstrlen_done:
 
 .global _get_next_label
 _get_next_label:
-    adrp x9, label_counter@PAGE
-    add x9, x9, label_counter@PAGEOFF
+    LOAD_ADDR x9, label_counter
     ldr x0, [x9]
     add x1, x0, #1
     str x1, [x9]

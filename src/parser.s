@@ -1,3 +1,4 @@
+#include "platform.inc"
  .text
  .align 4
  .global _parse_program
@@ -10,11 +11,9 @@ _parse_program:
     bl _preparse_functions
     cbnz x0, Lprogram_fail
 
-    adrp x9, cursor_pos@PAGE
-    add x9, x9, cursor_pos@PAGEOFF
+    LOAD_ADDR x9, cursor_pos
     str xzr, [x9]
-    adrp x9, current_line@PAGE
-    add x9, x9, current_line@PAGEOFF
+    LOAD_ADDR x9, current_line
     mov x10, #1
     str x10, [x9]
 
@@ -43,18 +42,14 @@ _preparse_functions:
     stp x19, x20, [sp, #-16]!
     stp x21, x22, [sp, #-16]!
 
-    adrp x9, cursor_pos@PAGE
-    add x9, x9, cursor_pos@PAGEOFF
+    LOAD_ADDR x9, cursor_pos
     ldr x19, [x9]
-    adrp x9, current_line@PAGE
-    add x9, x9, current_line@PAGEOFF
+    LOAD_ADDR x9, current_line
     ldr x20, [x9]
 
-    adrp x9, cursor_pos@PAGE
-    add x9, x9, cursor_pos@PAGEOFF
+    LOAD_ADDR x9, cursor_pos
     str xzr, [x9]
-    adrp x9, current_line@PAGE
-    add x9, x9, current_line@PAGEOFF
+    LOAD_ADDR x9, current_line
     mov x10, #1
     str x10, [x9]
 
@@ -69,8 +64,7 @@ Lpreparse_loop:
     mov x22, x1
     mov x0, x21
     mov x1, x22
-    adrp x2, kw_fn@PAGE
-    add x2, x2, kw_fn@PAGEOFF
+    LOAD_ADDR x2, kw_fn
     bl _match_cstr_span
     cbz x0, Lpreparse_loop
     bl _parse_fn_definition
@@ -97,11 +91,9 @@ Lpreparse_fail:
     mov x0, #1
 
 Lpreparse_return:
-    adrp x9, cursor_pos@PAGE
-    add x9, x9, cursor_pos@PAGEOFF
+    LOAD_ADDR x9, cursor_pos
     str x19, [x9]
-    adrp x9, current_line@PAGE
-    add x9, x9, current_line@PAGEOFF
+    LOAD_ADDR x9, current_line
     str x20, [x9]
     ldp x21, x22, [sp], #16
     ldp x19, x20, [sp], #16
@@ -122,134 +114,115 @@ _parse_statement:
 
     mov x0, x19
     mov x1, x20
-    adrp x2, kw_let@PAGE
-    add x2, x2, kw_let@PAGEOFF
+    LOAD_ADDR x2, kw_let
     bl _match_cstr_span
     cbnz x0, Lstmt_let
 
     mov x0, x19
     mov x1, x20
-    adrp x2, kw_print@PAGE
-    add x2, x2, kw_print@PAGEOFF
+    LOAD_ADDR x2, kw_print
     bl _match_cstr_span
     cbnz x0, Lstmt_print
 
     mov x0, x19
     mov x1, x20
-    adrp x2, kw_int@PAGE
-    add x2, x2, kw_int@PAGEOFF
+    LOAD_ADDR x2, kw_int
     bl _match_cstr_span
     cbnz x0, Lstmt_int
 
     mov x0, x19
     mov x1, x20
-    adrp x2, kw_bool@PAGE
-    add x2, x2, kw_bool@PAGEOFF
+    LOAD_ADDR x2, kw_bool
     bl _match_cstr_span
     cbnz x0, Lstmt_bool
 
     mov x0, x19
     mov x1, x20
-    adrp x2, kw_byte@PAGE
-    add x2, x2, kw_byte@PAGEOFF
+    LOAD_ADDR x2, kw_byte
     bl _match_cstr_span
     cbnz x0, Lstmt_byte
 
     mov x0, x19
     mov x1, x20
-    adrp x2, kw_dec@PAGE
-    add x2, x2, kw_dec@PAGEOFF
+    LOAD_ADDR x2, kw_dec
     bl _match_cstr_span
     cbnz x0, Lstmt_dec
 
     mov x0, x19
     mov x1, x20
-    adrp x2, kw_const@PAGE
-    add x2, x2, kw_const@PAGEOFF
+    LOAD_ADDR x2, kw_const
     bl _match_cstr_span
     cbnz x0, Lstmt_const
 
     mov x0, x19
     mov x1, x20
-    adrp x2, kw_fn@PAGE
-    add x2, x2, kw_fn@PAGEOFF
+    LOAD_ADDR x2, kw_fn
     bl _match_cstr_span
     cbnz x0, Lstmt_fn
 
     mov x0, x19
     mov x1, x20
-    adrp x2, kw_if@PAGE
-    add x2, x2, kw_if@PAGEOFF
+    LOAD_ADDR x2, kw_if
     bl _match_cstr_span
     cbnz x0, Lstmt_if
 
     mov x0, x19
     mov x1, x20
-    adrp x2, kw_while@PAGE
-    add x2, x2, kw_while@PAGEOFF
+    LOAD_ADDR x2, kw_while
     bl _match_cstr_span
     cbnz x0, Lstmt_while
 
     mov x0, x19
     mov x1, x20
-    adrp x2, kw_for@PAGE
-    add x2, x2, kw_for@PAGEOFF
+    LOAD_ADDR x2, kw_for
     bl _match_cstr_span
     cbnz x0, Lstmt_for
 
     mov x0, x19
     mov x1, x20
-    adrp x2, kw_stop@PAGE
-    add x2, x2, kw_stop@PAGEOFF
+    LOAD_ADDR x2, kw_stop
     bl _match_cstr_span
     cbnz x0, Lstmt_stop
 
     mov x0, x19
     mov x1, x20
-    adrp x2, kw_skip@PAGE
-    add x2, x2, kw_skip@PAGEOFF
+    LOAD_ADDR x2, kw_skip
     bl _match_cstr_span
     cbnz x0, Lstmt_skip
 
     mov x0, x19
     mov x1, x20
-    adrp x2, kw_str@PAGE
-    add x2, x2, kw_str@PAGEOFF
+    LOAD_ADDR x2, kw_str
     bl _match_cstr_span
     cbnz x0, Lstmt_str
 
     mov x0, x19
     mov x1, x20
-    adrp x2, kw_list@PAGE
-    add x2, x2, kw_list@PAGEOFF
+    LOAD_ADDR x2, kw_list
     bl _match_cstr_span
     cbnz x0, Lstmt_list
 
     mov x0, x19
     mov x1, x20
-    adrp x2, kw_match@PAGE
-    add x2, x2, kw_match@PAGEOFF
+    LOAD_ADDR x2, kw_match
     bl _match_cstr_span
     cbnz x0, Lstmt_match
 
     mov x0, x19
     mov x1, x20
-    adrp x2, kw_use@PAGE
-    add x2, x2, kw_use@PAGEOFF
+    LOAD_ADDR x2, kw_use
     bl _match_cstr_span
     cbnz x0, Lstmt_use
 
     mov x0, x19
     mov x1, x20
-    adrp x2, kw_return@PAGE
-    add x2, x2, kw_return@PAGEOFF
+    LOAD_ADDR x2, kw_return
     bl _match_cstr_span
     cbnz x0, Lstmt_return_val
 
     b Lstmt_assign
 
-    adrp x0, msg_unknown_stmt@PAGE
-    add x0, x0, msg_unknown_stmt@PAGEOFF
+    LOAD_ADDR x0, msg_unknown_stmt
     bl _report_error_prefix
     mov x0, x19
     mov x1, x20
@@ -512,20 +485,17 @@ Lstmt_list:
 
     mov x0, x21
     mov x1, x22
-    adrp x2, kw_int@PAGE
-    add x2, x2, kw_int@PAGEOFF
+    LOAD_ADDR x2, kw_int
     bl _match_cstr_span
     cbnz x0, Lstmt_list_int
 
     mov x0, x21
     mov x1, x22
-    adrp x2, kw_str@PAGE
-    add x2, x2, kw_str@PAGEOFF
+    LOAD_ADDR x2, kw_str
     bl _match_cstr_span
     cbnz x0, Lstmt_list_str
 
-    adrp x0, msg_expected_type@PAGE
-    add x0, x0, msg_expected_type@PAGEOFF
+    LOAD_ADDR x0, msg_expected_type
     bl _report_error_prefix
     b Lstmt_fail
 
@@ -584,34 +554,29 @@ Lstmt_const:
 
     mov x0, x21
     mov x1, x22
-    adrp x2, kw_int@PAGE
-    add x2, x2, kw_int@PAGEOFF
+    LOAD_ADDR x2, kw_int
     bl _match_cstr_span
     cbnz x0, Lstmt_const_int
 
     mov x0, x21
     mov x1, x22
-    adrp x2, kw_bool@PAGE
-    add x2, x2, kw_bool@PAGEOFF
+    LOAD_ADDR x2, kw_bool
     bl _match_cstr_span
     cbnz x0, Lstmt_const_bool
 
     mov x0, x21
     mov x1, x22
-    adrp x2, kw_str@PAGE
-    add x2, x2, kw_str@PAGEOFF
+    LOAD_ADDR x2, kw_str
     bl _match_cstr_span
     cbnz x0, Lstmt_const_str
 
     mov x0, x21
     mov x1, x22
-    adrp x2, kw_dec@PAGE
-    add x2, x2, kw_dec@PAGEOFF
+    LOAD_ADDR x2, kw_dec
     bl _match_cstr_span
     cbnz x0, Lstmt_const_dec
 
-    adrp x0, msg_expected_type@PAGE
-    add x0, x0, msg_expected_type@PAGEOFF
+    LOAD_ADDR x0, msg_expected_type
     bl _report_error_prefix
     b Lstmt_fail
 
@@ -821,11 +786,9 @@ Lstmt_fn:
     b Lstmt_return
 
 Lstmt_fn_unclosed:
-    adrp x0, msg_expected_char@PAGE
-    add x0, x0, msg_expected_char@PAGEOFF
+    LOAD_ADDR x0, msg_expected_char
     bl _report_error_prefix
-    adrp x0, close_brace_char@PAGE
-    add x0, x0, close_brace_char@PAGEOFF
+    LOAD_ADDR x0, close_brace_char
     mov x1, #1
     mov x2, #2
     bl _write_buffer_fd
@@ -861,8 +824,7 @@ Lstmt_for:
 Lstmt_stop:
     bl _consume_optional_semicolon
     // emit jump to loop end
-    adrp x9, current_loop_end@PAGE
-    add x9, x9, current_loop_end@PAGEOFF
+    LOAD_ADDR x9, current_loop_end
     ldr x1, [x9]
     mov x0, #41
     mov x2, #0
@@ -874,8 +836,7 @@ Lstmt_stop:
 Lstmt_skip:
     bl _consume_optional_semicolon
     // emit jump to loop start
-    adrp x9, current_loop_start@PAGE
-    add x9, x9, current_loop_start@PAGEOFF
+    LOAD_ADDR x9, current_loop_start
     ldr x1, [x9]
     mov x0, #41
     mov x2, #0
@@ -907,14 +868,11 @@ Lstmt_return_val:
     bl _parse_expr_value
     cbz x0, Lstmt_fail
     // Store return value
-    adrp x9, fn_return_value@PAGE
-    add x9, x9, fn_return_value@PAGEOFF
+    LOAD_ADDR x9, fn_return_value
     str x1, [x9]
-    adrp x9, fn_return_length@PAGE
-    add x9, x9, fn_return_length@PAGEOFF
+    LOAD_ADDR x9, fn_return_length
     str x3, [x9]
-    adrp x9, fn_return_flag@PAGE
-    add x9, x9, fn_return_flag@PAGEOFF
+    LOAD_ADDR x9, fn_return_flag
     mov x10, #1
     str x10, [x9]
     bl _consume_optional_semicolon
@@ -922,15 +880,12 @@ Lstmt_return_val:
     b Lstmt_return
 
 Lstmt_return_void:
-    adrp x9, fn_return_flag@PAGE
-    add x9, x9, fn_return_flag@PAGEOFF
+    LOAD_ADDR x9, fn_return_flag
     mov x10, #1
     str x10, [x9]
-    adrp x9, fn_return_value@PAGE
-    add x9, x9, fn_return_value@PAGEOFF
+    LOAD_ADDR x9, fn_return_value
     str xzr, [x9]
-    adrp x9, fn_return_length@PAGE
-    add x9, x9, fn_return_length@PAGEOFF
+    LOAD_ADDR x9, fn_return_length
     str xzr, [x9]
     mov x0, #4 // special return code: return
     b Lstmt_return
@@ -995,8 +950,7 @@ Lstmt_assign_runtime_expr_lookup:
     cbz x0, Lstmt_fail
     mov x27, x4
 
-    adrp x9, var_values@PAGE
-    add x9, x9, var_values@PAGEOFF
+    LOAD_ADDR x9, var_values
     ldr x25, [x9, x21, lsl #3]
     mov x26, x23
     cbz x24, Lstmt_assign_runtime_rhs_ready
@@ -1066,8 +1020,7 @@ Lstmt_assign_runtime_fallback:
     mov x25, x1
     mov x26, x23
     cbz x24, Lstmt_assign_runtime_fallback_rhs_ready
-    adrp x9, var_values@PAGE
-    add x9, x9, var_values@PAGEOFF
+    LOAD_ADDR x9, var_values
     ldr x26, [x9, x23, lsl #3]
 Lstmt_assign_runtime_fallback_rhs_ready:
     cmp x22, #1
@@ -1241,8 +1194,7 @@ Lstmt_assign_div_dec:
     b Lstmt_assign_store
 
 Lstmt_assign_divide_zero:
-    adrp x0, msg_divide_zero@PAGE
-    add x0, x0, msg_divide_zero@PAGEOFF
+    LOAD_ADDR x0, msg_divide_zero
     bl _report_error_prefix
     bl _write_newline_stderr
     b Lstmt_fail
@@ -1300,8 +1252,7 @@ Lstmt_assign_store_done:
     b Lstmt_return
 
 Lstmt_unknown_var_assign:
-    adrp x0, msg_unknown_var@PAGE
-    add x0, x0, msg_unknown_var@PAGEOFF
+    LOAD_ADDR x0, msg_unknown_var
     bl _report_error_prefix
     mov x0, x19
     mov x1, x20
@@ -1311,8 +1262,7 @@ Lstmt_unknown_var_assign:
     b Lstmt_fail
 
 Lstmt_unknown:
-    adrp x0, msg_unknown_stmt@PAGE
-    add x0, x0, msg_unknown_stmt@PAGEOFF
+    LOAD_ADDR x0, msg_unknown_stmt
     bl _report_error_prefix
     mov x0, x19
     mov x1, x20
@@ -1322,28 +1272,24 @@ Lstmt_unknown:
     b Lstmt_fail
 
 Lstmt_type_mismatch:
-    adrp x0, msg_type_mismatch@PAGE
-    add x0, x0, msg_type_mismatch@PAGEOFF
+    LOAD_ADDR x0, msg_type_mismatch
     bl _report_error_prefix
     bl _write_newline_stderr
     b Lstmt_fail
 
 Lstmt_decimal_scale_error:
-    adrp x0, msg_decimal_scale@PAGE
-    add x0, x0, msg_decimal_scale@PAGEOFF
+    LOAD_ADDR x0, msg_decimal_scale
     bl _report_error_prefix
     bl _write_newline_stderr
     b Lstmt_fail
 
 Lstmt_need_keyword:
-    adrp x0, msg_expected_stmt@PAGE
-    add x0, x0, msg_expected_stmt@PAGEOFF
+    LOAD_ADDR x0, msg_expected_stmt
     bl _report_error_prefix
     b Lstmt_fail
 
 Lstmt_need_name:
-    adrp x0, msg_expected_name@PAGE
-    add x0, x0, msg_expected_name@PAGEOFF
+    LOAD_ADDR x0, msg_expected_name
     bl _report_error_prefix
 
 Lstmt_fail:
@@ -1364,11 +1310,9 @@ _try_parse_runtime_var_bin_expr:
     stp x23, x24, [sp, #-16]!
     stp x25, x26, [sp, #-16]!
 
-    adrp x9, cursor_pos@PAGE
-    add x9, x9, cursor_pos@PAGEOFF
+    LOAD_ADDR x9, cursor_pos
     ldr x19, [x9]
-    adrp x9, current_line@PAGE
-    add x9, x9, current_line@PAGEOFF
+    LOAD_ADDR x9, current_line
     ldr x20, [x9]
 
     bl _parse_identifier
@@ -1460,11 +1404,9 @@ Lrt_expr_finish_check:
     b Lrt_expr_return
 
 Lrt_expr_restore_fail:
-    adrp x9, cursor_pos@PAGE
-    add x9, x9, cursor_pos@PAGEOFF
+    LOAD_ADDR x9, cursor_pos
     str x19, [x9]
-    adrp x9, current_line@PAGE
-    add x9, x9, current_line@PAGEOFF
+    LOAD_ADDR x9, current_line
     str x20, [x9]
     mov x0, #0
 
@@ -1544,8 +1486,7 @@ Lif_body_done:
 
     // check for else
     bl _skip_whitespace
-    adrp x0, kw_else@PAGE
-    add x0, x0, kw_else@PAGEOFF
+    LOAD_ADDR x0, kw_else
     bl _consume_keyword
     cbz x0, Lif_no_else
 
@@ -1567,8 +1508,7 @@ Lif_else_loop:
     b Lif_fail
 
 Lif_check_else_if:
-    adrp x0, kw_if@PAGE
-    add x0, x0, kw_if@PAGEOFF
+    LOAD_ADDR x0, kw_if
     bl _consume_keyword
     cbz x0, Lif_fail
     bl _parse_if_statement_after_keyword
@@ -1596,11 +1536,9 @@ Lif_no_else:
     b Lif_return
 
 Lif_unclosed:
-    adrp x0, msg_expected_char@PAGE
-    add x0, x0, msg_expected_char@PAGEOFF
+    LOAD_ADDR x0, msg_expected_char
     bl _report_error_prefix
-    adrp x0, close_brace_char@PAGE
-    add x0, x0, close_brace_char@PAGEOFF
+    LOAD_ADDR x0, close_brace_char
     mov x1, #1
     mov x2, #2
     bl _write_buffer_fd
@@ -1638,8 +1576,7 @@ _skip_if_statement_after_keyword:
 
     bl _consume_optional_else
     cbz x0, Lskip_if_done
-    adrp x0, kw_if@PAGE
-    add x0, x0, kw_if@PAGEOFF
+    LOAD_ADDR x0, kw_if
     bl _consume_keyword
     cbz x0, Lskip_if_else_block
     bl _skip_if_statement_after_keyword
@@ -1672,11 +1609,9 @@ _parse_while_statement_after_keyword:
     stp x23, x24, [sp, #-16]!
 
     // push old loop labels
-    adrp x9, current_loop_start@PAGE
-    add x9, x9, current_loop_start@PAGEOFF
+    LOAD_ADDR x9, current_loop_start
     ldr x19, [x9]
-    adrp x9, current_loop_end@PAGE
-    add x9, x9, current_loop_end@PAGEOFF
+    LOAD_ADDR x9, current_loop_end
     ldr x20, [x9]
 
     // allocate labels
@@ -1686,11 +1621,9 @@ _parse_while_statement_after_keyword:
     mov x22, x0 // end_label
 
     // set new loop labels
-    adrp x9, current_loop_start@PAGE
-    add x9, x9, current_loop_start@PAGEOFF
+    LOAD_ADDR x9, current_loop_start
     str x21, [x9]
-    adrp x9, current_loop_end@PAGE
-    add x9, x9, current_loop_end@PAGEOFF
+    LOAD_ADDR x9, current_loop_end
     str x22, [x9]
 
     // emit op 36 (while start label)
@@ -1755,22 +1688,18 @@ Lwhile_body_done:
     bl _record_operation4
 
     // pop old loop labels
-    adrp x9, current_loop_start@PAGE
-    add x9, x9, current_loop_start@PAGEOFF
+    LOAD_ADDR x9, current_loop_start
     str x19, [x9]
-    adrp x9, current_loop_end@PAGE
-    add x9, x9, current_loop_end@PAGEOFF
+    LOAD_ADDR x9, current_loop_end
     str x20, [x9]
 
     mov x0, #0
     b Lwhile_return
 
 Lwhile_unclosed:
-    adrp x0, msg_expected_char@PAGE
-    add x0, x0, msg_expected_char@PAGEOFF
+    LOAD_ADDR x0, msg_expected_char
     bl _report_error_prefix
-    adrp x0, close_brace_char@PAGE
-    add x0, x0, close_brace_char@PAGEOFF
+    LOAD_ADDR x0, close_brace_char
     mov x1, #1
     mov x2, #2
     bl _write_buffer_fd
@@ -1807,11 +1736,9 @@ _parse_for_statement_after_keyword:
     cbz x0, Lfor_fail
 
     // Probe for `for (item in iterable)` first.
-    adrp x9, cursor_pos@PAGE
-    add x9, x9, cursor_pos@PAGEOFF
+    LOAD_ADDR x9, cursor_pos
     ldr x26, [x9]
-    adrp x9, current_line@PAGE
-    add x9, x9, current_line@PAGEOFF
+    LOAD_ADDR x9, current_line
     ldr x27, [x9]
 
     bl _parse_identifier
@@ -1819,26 +1746,21 @@ _parse_for_statement_after_keyword:
     mov x24, x0
     mov x25, x1
 
-    adrp x0, kw_in@PAGE
-    add x0, x0, kw_in@PAGEOFF
+    LOAD_ADDR x0, kw_in
     bl _consume_keyword
     cbz x0, Lfor_counted_restore
     b Lfor_in_setup
 
 Lfor_counted_restore:
-    adrp x9, cursor_pos@PAGE
-    add x9, x9, cursor_pos@PAGEOFF
+    LOAD_ADDR x9, cursor_pos
     str x26, [x9]
-    adrp x9, current_line@PAGE
-    add x9, x9, current_line@PAGEOFF
+    LOAD_ADDR x9, current_line
     str x27, [x9]
 
     // Save old loop labels for nested-loop restoration
-    adrp x9, current_loop_start@PAGE
-    add x9, x9, current_loop_start@PAGEOFF
+    LOAD_ADDR x9, current_loop_start
     ldr x27, [x9]
-    adrp x9, current_loop_end@PAGE
-    add x9, x9, current_loop_end@PAGEOFF
+    LOAD_ADDR x9, current_loop_end
     ldr x28, [x9]
 
     // Parse init once (e.g. int i = 0)
@@ -1851,11 +1773,9 @@ Lfor_counted_restore:
     cbz x0, Lfor_counted_fail
 
     // Save condition cursor
-    adrp x9, cursor_pos@PAGE
-    add x9, x9, cursor_pos@PAGEOFF
+    LOAD_ADDR x9, cursor_pos
     ldr x19, [x9]
-    adrp x9, current_line@PAGE
-    add x9, x9, current_line@PAGEOFF
+    LOAD_ADDR x9, current_line
     ldr x20, [x9]
 
     // Allocate labels: start, end, update
@@ -1867,11 +1787,9 @@ Lfor_counted_restore:
     mov x23, x0
 
     // For `skip`, jump to update label. `stop` still jumps to end label.
-    adrp x9, current_loop_start@PAGE
-    add x9, x9, current_loop_start@PAGEOFF
+    LOAD_ADDR x9, current_loop_start
     str x23, [x9]
-    adrp x9, current_loop_end@PAGE
-    add x9, x9, current_loop_end@PAGEOFF
+    LOAD_ADDR x9, current_loop_end
     str x22, [x9]
 
     // op 36: start label
@@ -1884,11 +1802,9 @@ Lfor_counted_restore:
     cbnz x0, Lfor_counted_fail
 
     // Parse condition once from saved cursor
-    adrp x9, cursor_pos@PAGE
-    add x9, x9, cursor_pos@PAGEOFF
+    LOAD_ADDR x9, cursor_pos
     str x19, [x9]
-    adrp x9, current_line@PAGE
-    add x9, x9, current_line@PAGEOFF
+    LOAD_ADDR x9, current_line
     str x20, [x9]
 
     bl _parse_condition_value
@@ -1910,11 +1826,9 @@ Lfor_counted_restore:
     cbz x0, Lfor_counted_fail
 
     // Save update cursor for replay after body
-    adrp x9, cursor_pos@PAGE
-    add x9, x9, cursor_pos@PAGEOFF
+    LOAD_ADDR x9, cursor_pos
     ldr x24, [x9]
-    adrp x9, current_line@PAGE
-    add x9, x9, current_line@PAGEOFF
+    LOAD_ADDR x9, current_line
     ldr x25, [x9]
 
 Lfor_skip_update_text:
@@ -1958,11 +1872,9 @@ Lfor_body_done:
     cbnz x0, Lfor_counted_fail
 
     // Parse update once from saved header cursor
-    adrp x9, cursor_pos@PAGE
-    add x9, x9, cursor_pos@PAGEOFF
+    LOAD_ADDR x9, cursor_pos
     str x24, [x9]
-    adrp x9, current_line@PAGE
-    add x9, x9, current_line@PAGEOFF
+    LOAD_ADDR x9, current_line
     str x25, [x9]
 
     bl _parse_statement
@@ -1978,22 +1890,18 @@ Lfor_body_done:
     cbnz x0, Lfor_counted_fail
 
     // Restore previous loop labels
-    adrp x9, current_loop_start@PAGE
-    add x9, x9, current_loop_start@PAGEOFF
+    LOAD_ADDR x9, current_loop_start
     str x27, [x9]
-    adrp x9, current_loop_end@PAGE
-    add x9, x9, current_loop_end@PAGEOFF
+    LOAD_ADDR x9, current_loop_end
     str x28, [x9]
 
     mov x0, #0
     b Lfor_return
 
 Lfor_unclosed:
-    adrp x0, msg_expected_char@PAGE
-    add x0, x0, msg_expected_char@PAGEOFF
+    LOAD_ADDR x0, msg_expected_char
     bl _report_error_prefix
-    adrp x0, close_brace_char@PAGE
-    add x0, x0, close_brace_char@PAGEOFF
+    LOAD_ADDR x0, close_brace_char
     mov x1, #1
     mov x2, #2
     bl _write_buffer_fd
@@ -2002,11 +1910,9 @@ Lfor_unclosed:
 
 Lfor_counted_return_propagate:
     // Restore previous loop labels before propagating return
-    adrp x9, current_loop_start@PAGE
-    add x9, x9, current_loop_start@PAGEOFF
+    LOAD_ADDR x9, current_loop_start
     str x27, [x9]
-    adrp x9, current_loop_end@PAGE
-    add x9, x9, current_loop_end@PAGEOFF
+    LOAD_ADDR x9, current_loop_end
     str x28, [x9]
     mov x0, #4
     b Lfor_return
@@ -2019,11 +1925,9 @@ Lfor_skip_block_done:
 
 Lfor_counted_fail:
     // Restore previous loop labels on counted-loop failure
-    adrp x9, current_loop_start@PAGE
-    add x9, x9, current_loop_start@PAGEOFF
+    LOAD_ADDR x9, current_loop_start
     str x27, [x9]
-    adrp x9, current_loop_end@PAGE
-    add x9, x9, current_loop_end@PAGEOFF
+    LOAD_ADDR x9, current_loop_end
     str x28, [x9]
     mov x0, #1
     b Lfor_return
@@ -2057,11 +1961,9 @@ Lfor_in_setup:
     bl _expect_char
     cbz x0, Lfor_fail
 
-    adrp x9, cursor_pos@PAGE
-    add x9, x9, cursor_pos@PAGEOFF
+    LOAD_ADDR x9, cursor_pos
     ldr x22, [x9]
-    adrp x9, current_line@PAGE
-    add x9, x9, current_line@PAGEOFF
+    LOAD_ADDR x9, current_line
     ldr x23, [x9]
 
     cbz x20, Lfor_skip_block_done
@@ -2073,11 +1975,9 @@ Lfor_in_iteration:
     b.ge Lfor_in_done
 
     add x9, x19, x26
-    adrp x10, list_pool_values@PAGE
-    add x10, x10, list_pool_values@PAGEOFF
+    LOAD_ADDR x10, list_pool_values
     ldr x27, [x10, x9, lsl #3]
-    adrp x10, list_pool_lengths@PAGE
-    add x10, x10, list_pool_lengths@PAGEOFF
+    LOAD_ADDR x10, list_pool_lengths
     ldr x28, [x10, x9, lsl #3]
 
     mov x0, x24
@@ -2117,11 +2017,9 @@ Lfor_in_store_runtime:
     cbnz x0, Lfor_fail
 
 Lfor_in_body_reset:
-    adrp x9, cursor_pos@PAGE
-    add x9, x9, cursor_pos@PAGEOFF
+    LOAD_ADDR x9, cursor_pos
     str x22, [x9]
-    adrp x9, current_line@PAGE
-    add x9, x9, current_line@PAGEOFF
+    LOAD_ADDR x9, current_line
     str x23, [x9]
 
 Lfor_in_body_loop:
@@ -2166,22 +2064,18 @@ _parse_for_iterable_value:
     stp x21, x22, [sp, #-16]!
     stp x23, x24, [sp, #-16]!
 
-    adrp x9, cursor_pos@PAGE
-    add x9, x9, cursor_pos@PAGEOFF
+    LOAD_ADDR x9, cursor_pos
     ldr x19, [x9]
-    adrp x9, current_line@PAGE
-    add x9, x9, current_line@PAGEOFF
+    LOAD_ADDR x9, current_line
     ldr x20, [x9]
 
     mov x0, #-1
     bl _parse_list_literal_value
     cbnz x0, Lfor_iterable_ok
 
-    adrp x9, cursor_pos@PAGE
-    add x9, x9, cursor_pos@PAGEOFF
+    LOAD_ADDR x9, cursor_pos
     str x19, [x9]
-    adrp x9, current_line@PAGE
-    add x9, x9, current_line@PAGEOFF
+    LOAD_ADDR x9, current_line
     str x20, [x9]
 
     bl _parse_identifier
@@ -2219,8 +2113,7 @@ Lfor_iterable_ok:
     b Lfor_iterable_return
 
 Lfor_iterable_fail:
-    adrp x0, msg_expected_list@PAGE
-    add x0, x0, msg_expected_list@PAGEOFF
+    LOAD_ADDR x0, msg_expected_list
     bl _report_error_prefix
     mov x0, #0
 
@@ -2247,8 +2140,7 @@ _parse_list_literal_value:
     b.ne Llist_fail
     bl _advance_char
 
-    adrp x9, list_pool_count@PAGE
-    add x9, x9, list_pool_count@PAGEOFF
+    LOAD_ADDR x9, list_pool_count
     ldr x20, [x9]
     mov x21, #0
     mov x22, x19
@@ -2290,14 +2182,11 @@ Llist_check_type:
     b.ne Llist_fail
 
 Llist_store:
-    adrp x9, list_pool_count@PAGE
-    add x9, x9, list_pool_count@PAGEOFF
+    LOAD_ADDR x9, list_pool_count
     ldr x10, [x9]
-    adrp x11, list_pool_values@PAGE
-    add x11, x11, list_pool_values@PAGEOFF
+    LOAD_ADDR x11, list_pool_values
     str x23, [x11, x10, lsl #3]
-    adrp x11, list_pool_lengths@PAGE
-    add x11, x11, list_pool_lengths@PAGEOFF
+    LOAD_ADDR x11, list_pool_lengths
     str x25, [x11, x10, lsl #3]
     add x10, x10, #1
     str x10, [x9]
@@ -2359,8 +2248,7 @@ Luse_done:
     ret
 
 Luse_fail:
-    adrp x0, msg_expected_name@PAGE
-    add x0, x0, msg_expected_name@PAGEOFF
+    LOAD_ADDR x0, msg_expected_name
     bl _report_error_prefix
     mov x0, #1
     ldp x29, x30, [sp], #16
@@ -2404,8 +2292,7 @@ Lmatch_case_loop:
     b.eq Lmatch_done
     cbz w0, Lmatch_unclosed
 
-    adrp x0, kw_default@PAGE
-    add x0, x0, kw_default@PAGEOFF
+    LOAD_ADDR x0, kw_default
     bl _consume_keyword
     cbnz x0, Lmatch_default
 
@@ -2497,11 +2384,9 @@ Lmatch_done:
     b Lmatch_return
 
 Lmatch_unclosed:
-    adrp x0, msg_expected_char@PAGE
-    add x0, x0, msg_expected_char@PAGEOFF
+    LOAD_ADDR x0, msg_expected_char
     bl _report_error_prefix
-    adrp x0, close_brace_char@PAGE
-    add x0, x0, close_brace_char@PAGEOFF
+    LOAD_ADDR x0, close_brace_char
     mov x1, #1
     mov x2, #2
     bl _write_buffer_fd
@@ -2661,15 +2546,13 @@ Lexpr_sub_dec:
     b Lexpr_loop
 
 Lexpr_type_mismatch:
-    adrp x0, msg_type_mismatch@PAGE
-    add x0, x0, msg_type_mismatch@PAGEOFF
+    LOAD_ADDR x0, msg_type_mismatch
     bl _report_error_prefix
     bl _write_newline_stderr
     b Lexpr_fail
 
 Lexpr_scale_error:
-    adrp x0, msg_decimal_scale@PAGE
-    add x0, x0, msg_decimal_scale@PAGEOFF
+    LOAD_ADDR x0, msg_decimal_scale
     bl _report_error_prefix
     bl _write_newline_stderr
     b Lexpr_fail
@@ -2690,8 +2573,7 @@ _parse_condition_value:
     stp x19, x20, [sp, #-16]!
     stp x21, x22, [sp, #-16]!
 
-    adrp x0, kw_not@PAGE
-    add x0, x0, kw_not@PAGEOFF
+    LOAD_ADDR x0, kw_not
     bl _consume_keyword
     cbz x0, Lcond_parse_first
     bl _parse_condition_value
@@ -2709,13 +2591,11 @@ Lcond_parse_first:
     mov x21, x3
 
 Lcond_logic_loop:
-    adrp x0, kw_and@PAGE
-    add x0, x0, kw_and@PAGEOFF
+    LOAD_ADDR x0, kw_and
     bl _consume_keyword
     cbnz x0, Lcond_logic_and
 
-    adrp x0, kw_or@PAGE
-    add x0, x0, kw_or@PAGEOFF
+    LOAD_ADDR x0, kw_or
     bl _consume_keyword
     cbnz x0, Lcond_logic_or
 
@@ -2964,29 +2844,25 @@ Lterm_modulo:
     b Lterm_loop
 
 Lterm_divide_zero:
-    adrp x0, msg_divide_zero@PAGE
-    add x0, x0, msg_divide_zero@PAGEOFF
+    LOAD_ADDR x0, msg_divide_zero
     bl _report_error_prefix
     bl _write_newline_stderr
     b Lterm_fail
 
 Lterm_unsupported_decimal:
-    adrp x0, msg_unsupported_decimal@PAGE
-    add x0, x0, msg_unsupported_decimal@PAGEOFF
+    LOAD_ADDR x0, msg_unsupported_decimal
     bl _report_error_prefix
     bl _write_newline_stderr
     b Lterm_fail
 
 Lterm_type_mismatch:
-    adrp x0, msg_type_mismatch@PAGE
-    add x0, x0, msg_type_mismatch@PAGEOFF
+    LOAD_ADDR x0, msg_type_mismatch
     bl _report_error_prefix
     bl _write_newline_stderr
     b Lterm_fail
 
 Lterm_scale_error:
-    adrp x0, msg_decimal_scale@PAGE
-    add x0, x0, msg_decimal_scale@PAGEOFF
+    LOAD_ADDR x0, msg_decimal_scale
     bl _report_error_prefix
     bl _write_newline_stderr
     b Lterm_fail
@@ -3025,11 +2901,9 @@ _parse_power_value:
 
 Lpow_loop:
     bl _skip_whitespace
-    adrp x9, cursor_pos@PAGE
-    add x9, x9, cursor_pos@PAGEOFF
+    LOAD_ADDR x9, cursor_pos
     ldr x22, [x9]
-    adrp x9, current_line@PAGE
-    add x9, x9, current_line@PAGEOFF
+    LOAD_ADDR x9, current_line
     ldr x23, [x9]
     bl _peek_char
     cmp w0, #'*'
@@ -3063,11 +2937,9 @@ Lpow_zero_exp:
     b Lpow_loop
 
 Lpow_restore_done:
-    adrp x9, cursor_pos@PAGE
-    add x9, x9, cursor_pos@PAGEOFF
+    LOAD_ADDR x9, cursor_pos
     str x22, [x9]
-    adrp x9, current_line@PAGE
-    add x9, x9, current_line@PAGEOFF
+    LOAD_ADDR x9, current_line
     str x23, [x9]
     b Lpow_done
 
@@ -3141,22 +3013,19 @@ Lprimary_identifier:
 
     mov x0, x19
     mov x1, x20
-    adrp x2, kw_cast@PAGE
-    add x2, x2, kw_cast@PAGEOFF
+    LOAD_ADDR x2, kw_cast
     bl _match_cstr_span
     cbnz x0, Lprimary_cast
 
     mov x0, x19
     mov x1, x20
-    adrp x2, kw_true@PAGE
-    add x2, x2, kw_true@PAGEOFF
+    LOAD_ADDR x2, kw_true
     bl _match_cstr_span
     cbnz x0, Lprimary_true
 
     mov x0, x19
     mov x1, x20
-    adrp x2, kw_false@PAGE
-    add x2, x2, kw_false@PAGEOFF
+    LOAD_ADDR x2, kw_false
     bl _match_cstr_span
     cbnz x0, Lprimary_false
 
@@ -3182,8 +3051,7 @@ Lprimary_try_fn_call:
     mov x20, x1
     mov x21, x2
     // Read return value
-    adrp x9, fn_return_value@PAGE
-    add x9, x9, fn_return_value@PAGEOFF
+    LOAD_ADDR x9, fn_return_value
     ldr x1, [x9]
     mov x0, #1
     mov x2, x20
@@ -3192,8 +3060,7 @@ Lprimary_try_fn_call:
     cmp x20, #6
     b.ne Lprimary_fn_call_non_str
 Lprimary_fn_call_load_len:
-    adrp x9, fn_return_length@PAGE
-    add x9, x9, fn_return_length@PAGEOFF
+    LOAD_ADDR x9, fn_return_length
     ldr x3, [x9]
     cmp x20, #6
     b.ne Lprimary_fn_call_done
@@ -3236,14 +3103,12 @@ Lprimary_string:
     b Lprimary_return
 
 Lprimary_missing:
-    adrp x0, msg_expected_expr@PAGE
-    add x0, x0, msg_expected_expr@PAGEOFF
+    LOAD_ADDR x0, msg_expected_expr
     bl _report_error_prefix
     b Lprimary_fail
 
 Lprimary_unknown_var:
-    adrp x0, msg_unknown_var@PAGE
-    add x0, x0, msg_unknown_var@PAGEOFF
+    LOAD_ADDR x0, msg_unknown_var
     bl _report_error_prefix
     mov x0, x19
     mov x1, x20
@@ -3317,36 +3182,31 @@ _parse_type_spec:
 
     mov x0, x19
     mov x1, x20
-    adrp x2, kw_int@PAGE
-    add x2, x2, kw_int@PAGEOFF
+    LOAD_ADDR x2, kw_int
     bl _match_cstr_span
     cbnz x0, Lparse_type_int
 
     mov x0, x19
     mov x1, x20
-    adrp x2, kw_bool@PAGE
-    add x2, x2, kw_bool@PAGEOFF
+    LOAD_ADDR x2, kw_bool
     bl _match_cstr_span
     cbnz x0, Lparse_type_bool
 
     mov x0, x19
     mov x1, x20
-    adrp x2, kw_byte@PAGE
-    add x2, x2, kw_byte@PAGEOFF
+    LOAD_ADDR x2, kw_byte
     bl _match_cstr_span
     cbnz x0, Lparse_type_byte
 
     mov x0, x19
     mov x1, x20
-    adrp x2, kw_str@PAGE
-    add x2, x2, kw_str@PAGEOFF
+    LOAD_ADDR x2, kw_str
     bl _match_cstr_span
     cbnz x0, Lparse_type_str
 
     mov x0, x19
     mov x1, x20
-    adrp x2, kw_dec@PAGE
-    add x2, x2, kw_dec@PAGEOFF
+    LOAD_ADDR x2, kw_dec
     bl _match_cstr_span
     cbnz x0, Lparse_type_dec
 
@@ -3479,8 +3339,7 @@ Lcast_int_same:
     b Lcast_return
 
 Lcast_type_mismatch:
-    adrp x0, msg_type_mismatch@PAGE
-    add x0, x0, msg_type_mismatch@PAGEOFF
+    LOAD_ADDR x0, msg_type_mismatch
     bl _report_error_prefix
     bl _write_newline_stderr
 Lcast_fail:
@@ -3499,11 +3358,9 @@ _parse_numeric_literal:
     stp x19, x20, [sp, #-16]!
     stp x21, x22, [sp, #-16]!
 
-    adrp x9, cursor_pos@PAGE
-    add x9, x9, cursor_pos@PAGEOFF
+    LOAD_ADDR x9, cursor_pos
     ldr x21, [x9]
-    adrp x9, current_line@PAGE
-    add x9, x9, current_line@PAGEOFF
+    LOAD_ADDR x9, current_line
     ldr x22, [x9]
 
     bl _parse_number
@@ -3549,18 +3406,15 @@ Lnum_lit_int:
     b Lnum_lit_return
 
 Lnum_lit_invalid:
-    adrp x0, msg_invalid_decimal@PAGE
-    add x0, x0, msg_invalid_decimal@PAGEOFF
+    LOAD_ADDR x0, msg_invalid_decimal
     bl _report_error_prefix
     bl _write_newline_stderr
     b Lnum_lit_fail
 
 Lnum_lit_fail:
-    adrp x9, cursor_pos@PAGE
-    add x9, x9, cursor_pos@PAGEOFF
+    LOAD_ADDR x9, cursor_pos
     str x21, [x9]
-    adrp x9, current_line@PAGE
-    add x9, x9, current_line@PAGEOFF
+    LOAD_ADDR x9, current_line
     str x22, [x9]
     mov x0, #0
 
@@ -3695,11 +3549,9 @@ _expect_char:
     ret
 
 Lexpect_fail:
-    adrp x0, msg_expected_char@PAGE
-    add x0, x0, msg_expected_char@PAGEOFF
+    LOAD_ADDR x0, msg_expected_char
     bl _report_error_prefix
-    adrp x0, single_char@PAGE
-    add x0, x0, single_char@PAGEOFF
+    LOAD_ADDR x0, single_char
     strb w19, [x0]
     mov x1, #1
     mov x2, #2
@@ -3730,11 +3582,9 @@ _consume_optional_else:
     stp x19, x20, [sp, #-16]!
     stp x21, x22, [sp, #-16]!
 
-    adrp x9, cursor_pos@PAGE
-    add x9, x9, cursor_pos@PAGEOFF
+    LOAD_ADDR x9, cursor_pos
     ldr x19, [x9]
-    adrp x9, current_line@PAGE
-    add x9, x9, current_line@PAGEOFF
+    LOAD_ADDR x9, current_line
     ldr x20, [x9]
 
     bl _skip_whitespace
@@ -3745,8 +3595,7 @@ _consume_optional_else:
     mov x22, x1
     mov x0, x21
     mov x1, x22
-    adrp x2, kw_else@PAGE
-    add x2, x2, kw_else@PAGEOFF
+    LOAD_ADDR x2, kw_else
     bl _match_cstr_span
     cbz x0, Lconsume_else_restore
 
@@ -3754,11 +3603,9 @@ _consume_optional_else:
     b Lconsume_else_return
 
 Lconsume_else_restore:
-    adrp x9, cursor_pos@PAGE
-    add x9, x9, cursor_pos@PAGEOFF
+    LOAD_ADDR x9, cursor_pos
     str x19, [x9]
-    adrp x9, current_line@PAGE
-    add x9, x9, current_line@PAGEOFF
+    LOAD_ADDR x9, current_line
     str x20, [x9]
     mov x0, #0
 
@@ -3776,11 +3623,9 @@ _consume_keyword:
     stp x23, x24, [sp, #-16]!
 
     mov x21, x0
-    adrp x9, cursor_pos@PAGE
-    add x9, x9, cursor_pos@PAGEOFF
+    LOAD_ADDR x9, cursor_pos
     ldr x19, [x9]
-    adrp x9, current_line@PAGE
-    add x9, x9, current_line@PAGEOFF
+    LOAD_ADDR x9, current_line
     ldr x20, [x9]
 
     bl _skip_whitespace
@@ -3799,11 +3644,9 @@ _consume_keyword:
     b Lconsume_keyword_return
 
 Lconsume_keyword_restore:
-    adrp x9, cursor_pos@PAGE
-    add x9, x9, cursor_pos@PAGEOFF
+    LOAD_ADDR x9, cursor_pos
     str x19, [x9]
-    adrp x9, current_line@PAGE
-    add x9, x9, current_line@PAGEOFF
+    LOAD_ADDR x9, current_line
     str x20, [x9]
     mov x0, #0
 
@@ -3844,11 +3687,9 @@ Lskip_block_close:
     b Lskip_block_return
 
 Lskip_block_fail:
-    adrp x0, msg_expected_char@PAGE
-    add x0, x0, msg_expected_char@PAGEOFF
+    LOAD_ADDR x0, msg_expected_char
     bl _report_error_prefix
-    adrp x0, close_brace_char@PAGE
-    add x0, x0, close_brace_char@PAGEOFF
+    LOAD_ADDR x0, close_brace_char
     mov x1, #1
     mov x2, #2
     bl _write_buffer_fd
@@ -3946,19 +3787,16 @@ _parse_fn_definition:
 
 Lfn_def_new:
     // Check fn table not full
-    adrp x9, fn_count@PAGE
-    add x9, x9, fn_count@PAGEOFF
+    LOAD_ADDR x9, fn_count
     ldr x21, [x9]
     cmp x21, #32
     b.ge Lfn_def_full
     mov x26, #0
 
     // Store name
-    adrp x9, fn_name_ptrs@PAGE
-    add x9, x9, fn_name_ptrs@PAGEOFF
+    LOAD_ADDR x9, fn_name_ptrs
     str x19, [x9, x21, lsl #3]
-    adrp x9, fn_name_lens@PAGE
-    add x9, x9, fn_name_lens@PAGEOFF
+    LOAD_ADDR x9, fn_name_lens
     str x20, [x9, x21, lsl #3]
 
 Lfn_def_after_name:
@@ -3998,11 +3836,9 @@ Lfn_def_param_store_type:
     mov x9, x21
     lsl x9, x9, #2         // fn_idx * 4
     add x9, x9, x22        // + param_idx
-    adrp x10, fn_param_types@PAGE
-    add x10, x10, fn_param_types@PAGEOFF
+    LOAD_ADDR x10, fn_param_types
     str x25, [x10, x9, lsl #3]
-    adrp x10, fn_param_lengths@PAGE
-    add x10, x10, fn_param_lengths@PAGEOFF
+    LOAD_ADDR x10, fn_param_lengths
     str x24, [x10, x9, lsl #3]
 Lfn_def_param_skip_store:
 
@@ -4018,11 +3854,9 @@ Lfn_def_param_skip_store:
     mov x9, x21
     lsl x9, x9, #2
     add x9, x9, x22
-    adrp x10, fn_param_name_ptrs@PAGE
-    add x10, x10, fn_param_name_ptrs@PAGEOFF
+    LOAD_ADDR x10, fn_param_name_ptrs
     str x23, [x10, x9, lsl #3]
-    adrp x10, fn_param_name_lens@PAGE
-    add x10, x10, fn_param_name_lens@PAGEOFF
+    LOAD_ADDR x10, fn_param_name_lens
     str x24, [x10, x9, lsl #3]
 Lfn_def_param_done:
 
@@ -4034,8 +3868,7 @@ Lfn_def_params_done:
 
     // Store param count
     cbnz x26, Lfn_def_count_done
-    adrp x9, fn_param_counts@PAGE
-    add x9, x9, fn_param_counts@PAGEOFF
+    LOAD_ADDR x9, fn_param_counts
     str x22, [x9, x21, lsl #3]
 Lfn_def_count_done:
 
@@ -4059,11 +3892,9 @@ Lfn_def_count_done:
     mov x24, x2
 Lfn_def_store_ret:
     cbnz x26, Lfn_def_expect_body
-    adrp x9, fn_return_types@PAGE
-    add x9, x9, fn_return_types@PAGEOFF
+    LOAD_ADDR x9, fn_return_types
     str x25, [x9, x21, lsl #3]
-    adrp x9, fn_return_decl_lengths@PAGE
-    add x9, x9, fn_return_decl_lengths@PAGEOFF
+    LOAD_ADDR x9, fn_return_decl_lengths
     str x24, [x9, x21, lsl #3]
     b Lfn_def_expect_body
 
@@ -4071,11 +3902,9 @@ Lfn_def_no_return_type:
     // No return type, store -1
     mov x25, #-1
     cbnz x26, Lfn_def_expect_body
-    adrp x9, fn_return_types@PAGE
-    add x9, x9, fn_return_types@PAGEOFF
+    LOAD_ADDR x9, fn_return_types
     str x25, [x9, x21, lsl #3]
-    adrp x9, fn_return_decl_lengths@PAGE
-    add x9, x9, fn_return_decl_lengths@PAGEOFF
+    LOAD_ADDR x9, fn_return_decl_lengths
     str xzr, [x9, x21, lsl #3]
 
 Lfn_def_expect_body:
@@ -4085,23 +3914,18 @@ Lfn_def_expect_body:
     cbz x0, Lfn_def_fail
 
     // Store cursor position of body start
-    adrp x9, cursor_pos@PAGE
-    add x9, x9, cursor_pos@PAGEOFF
+    LOAD_ADDR x9, cursor_pos
     ldr x23, [x9]
-    adrp x9, current_line@PAGE
-    add x9, x9, current_line@PAGEOFF
+    LOAD_ADDR x9, current_line
     ldr x24, [x9]
     cbnz x26, Lfn_def_skip_count
-    adrp x9, fn_body_cursors@PAGE
-    add x9, x9, fn_body_cursors@PAGEOFF
+    LOAD_ADDR x9, fn_body_cursors
     str x23, [x9, x21, lsl #3]
-    adrp x9, fn_body_lines@PAGE
-    add x9, x9, fn_body_lines@PAGEOFF
+    LOAD_ADDR x9, fn_body_lines
     str x24, [x9, x21, lsl #3]
 
     // Increment fn count
-    adrp x9, fn_count@PAGE
-    add x9, x9, fn_count@PAGEOFF
+    LOAD_ADDR x9, fn_count
     add x21, x21, #1
     str x21, [x9]
 Lfn_def_skip_count:
@@ -4114,15 +3938,13 @@ Lfn_def_skip_count:
     b Lfn_def_return
 
 Lfn_def_full:
-    adrp x0, msg_too_many_fns@PAGE
-    add x0, x0, msg_too_many_fns@PAGEOFF
+    LOAD_ADDR x0, msg_too_many_fns
     mov x1, #2
     bl _write_cstr_fd
     b Lfn_def_fail
 
 Lfn_def_too_many_params:
-    adrp x0, msg_too_many_params@PAGE
-    add x0, x0, msg_too_many_params@PAGEOFF
+    LOAD_ADDR x0, msg_too_many_params
     bl _report_error_prefix
     mov x0, x19
     mov x1, x20
@@ -4156,20 +3978,17 @@ _lookup_function:
     mov x19, x0
     mov x20, x1
     mov x21, #0
-    adrp x22, fn_count@PAGE
-    add x22, x22, fn_count@PAGEOFF
+    LOAD_ADDR x22, fn_count
     ldr x22, [x22]
 
 Lfn_lookup_loop:
     cmp x21, x22
     b.ge Lfn_lookup_fail
-    adrp x9, fn_name_lens@PAGE
-    add x9, x9, fn_name_lens@PAGEOFF
+    LOAD_ADDR x9, fn_name_lens
     ldr x10, [x9, x21, lsl #3]
     cmp x10, x20
     b.ne Lfn_lookup_next
-    adrp x9, fn_name_ptrs@PAGE
-    add x9, x9, fn_name_ptrs@PAGEOFF
+    LOAD_ADDR x9, fn_name_ptrs
     ldr x11, [x9, x21, lsl #3]
     mov x0, x19
     mov x1, x20
@@ -4220,13 +4039,11 @@ _call_function:
     mov x21, x1   // fn index
 
     // Save current var count so we can restore after call
-    adrp x9, var_count@PAGE
-    add x9, x9, var_count@PAGEOFF
+    LOAD_ADDR x9, var_count
     ldr x22, [x9]  // saved var count
 
     // Get param count
-    adrp x9, fn_param_counts@PAGE
-    add x9, x9, fn_param_counts@PAGEOFF
+    LOAD_ADDR x9, fn_param_counts
     ldr x23, [x9, x21, lsl #3]  // expected param count
 
     // Parse '(' and arguments
@@ -4261,17 +4078,13 @@ Lfn_call_parse_arg:
     add x9, x9, x24        // + param_idx
 
     // Save param name info for defining variable
-    adrp x10, fn_param_name_ptrs@PAGE
-    add x10, x10, fn_param_name_ptrs@PAGEOFF
+    LOAD_ADDR x10, fn_param_name_ptrs
     ldr x25, [x10, x9, lsl #3]
-    adrp x10, fn_param_name_lens@PAGE
-    add x10, x10, fn_param_name_lens@PAGEOFF
+    LOAD_ADDR x10, fn_param_name_lens
     ldr x26, [x10, x9, lsl #3]
-    adrp x10, fn_param_types@PAGE
-    add x10, x10, fn_param_types@PAGEOFF
+    LOAD_ADDR x10, fn_param_types
     ldr x27, [x10, x9, lsl #3]
-    adrp x10, fn_param_lengths@PAGE
-    add x10, x10, fn_param_lengths@PAGEOFF
+    LOAD_ADDR x10, fn_param_lengths
     ldr x5, [x10, x9, lsl #3]
 
     bl _parse_expr_value
@@ -4314,40 +4127,31 @@ Lfn_call_args_done:
     b.ne Lfn_call_wrong_args
 
     // Save current cursor position (after the call site)
-    adrp x9, cursor_pos@PAGE
-    add x9, x9, cursor_pos@PAGEOFF
+    LOAD_ADDR x9, cursor_pos
     ldr x25, [x9]
-    adrp x9, current_line@PAGE
-    add x9, x9, current_line@PAGEOFF
+    LOAD_ADDR x9, current_line
     ldr x26, [x9]
 
     // Clear return flag
-    adrp x9, fn_return_flag@PAGE
-    add x9, x9, fn_return_flag@PAGEOFF
+    LOAD_ADDR x9, fn_return_flag
     str xzr, [x9]
-    adrp x9, fn_return_length@PAGE
-    add x9, x9, fn_return_length@PAGEOFF
+    LOAD_ADDR x9, fn_return_length
     str xzr, [x9]
 
     // Jump cursor to function body
-    adrp x9, fn_body_cursors@PAGE
-    add x9, x9, fn_body_cursors@PAGEOFF
+    LOAD_ADDR x9, fn_body_cursors
     ldr x27, [x9, x21, lsl #3]
-    adrp x9, fn_body_lines@PAGE
-    add x9, x9, fn_body_lines@PAGEOFF
+    LOAD_ADDR x9, fn_body_lines
     ldr x28, [x9, x21, lsl #3]
-    adrp x9, cursor_pos@PAGE
-    add x9, x9, cursor_pos@PAGEOFF
+    LOAD_ADDR x9, cursor_pos
     str x27, [x9]
-    adrp x9, current_line@PAGE
-    add x9, x9, current_line@PAGEOFF
+    LOAD_ADDR x9, current_line
     str x28, [x9]
 
     // Execute function body
 Lfn_call_body_loop:
     // Check return flag
-    adrp x9, fn_return_flag@PAGE
-    add x9, x9, fn_return_flag@PAGEOFF
+    LOAD_ADDR x9, fn_return_flag
     ldr x10, [x9]
     cbnz x10, Lfn_call_body_returned
 
@@ -4384,35 +4188,28 @@ Lfn_call_body_done:
     bl _advance_char // consume '}'
 
     // Restore cursor to call site
-    adrp x9, cursor_pos@PAGE
-    add x9, x9, cursor_pos@PAGEOFF
+    LOAD_ADDR x9, cursor_pos
     str x25, [x9]
-    adrp x9, current_line@PAGE
-    add x9, x9, current_line@PAGEOFF
+    LOAD_ADDR x9, current_line
     str x26, [x9]
 
     // Remove param variables (restore var count)
-    adrp x9, var_count@PAGE
-    add x9, x9, var_count@PAGEOFF
+    LOAD_ADDR x9, var_count
     str x22, [x9]
 
     // Clear return flag
-    adrp x9, fn_return_flag@PAGE
-    add x9, x9, fn_return_flag@PAGEOFF
+    LOAD_ADDR x9, fn_return_flag
     str xzr, [x9]
 
     mov x0, #0
-    adrp x9, fn_return_types@PAGE
-    add x9, x9, fn_return_types@PAGEOFF
+    LOAD_ADDR x9, fn_return_types
     ldr x1, [x9, x21, lsl #3]
-    adrp x9, fn_return_decl_lengths@PAGE
-    add x9, x9, fn_return_decl_lengths@PAGEOFF
+    LOAD_ADDR x9, fn_return_decl_lengths
     ldr x2, [x9, x21, lsl #3]
     b Lfn_call_return
 
 Lfn_call_unknown:
-    adrp x0, msg_unknown_fn@PAGE
-    add x0, x0, msg_unknown_fn@PAGEOFF
+    LOAD_ADDR x0, msg_unknown_fn
     bl _report_error_prefix
     mov x0, x19
     mov x1, x20
@@ -4422,15 +4219,13 @@ Lfn_call_unknown:
     b Lfn_call_fail
 
 Lfn_call_wrong_args:
-    adrp x0, msg_wrong_arg_count@PAGE
-    add x0, x0, msg_wrong_arg_count@PAGEOFF
+    LOAD_ADDR x0, msg_wrong_arg_count
     bl _report_error_prefix
     b Lfn_call_fail
 
 Lfn_call_fail:
     // Restore var count on failure too
-    adrp x9, var_count@PAGE
-    add x9, x9, var_count@PAGEOFF
+    LOAD_ADDR x9, var_count
     str x22, [x9]
     mov x0, #1
 

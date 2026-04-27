@@ -1,3 +1,4 @@
+#include "platform.inc"
  .text
  .align 4
  .global _define_variable
@@ -32,29 +33,22 @@ _define_variable:
     bl _lookup_variable
     cbnz x0, Ldefine_duplicate
 
-    adrp x22, var_count@PAGE
-    add x22, x22, var_count@PAGEOFF
+    LOAD_ADDR x22, var_count
     ldr x23, [x22]
     cmp x23, #512
     b.ge Ldefine_full
 
-    adrp x24, var_name_ptrs@PAGE
-    add x24, x24, var_name_ptrs@PAGEOFF
+    LOAD_ADDR x24, var_name_ptrs
     str x19, [x24, x23, lsl #3]
-    adrp x24, var_name_lens@PAGE
-    add x24, x24, var_name_lens@PAGEOFF
+    LOAD_ADDR x24, var_name_lens
     str x20, [x24, x23, lsl #3]
-    adrp x24, var_values@PAGE
-    add x24, x24, var_values@PAGEOFF
+    LOAD_ADDR x24, var_values
     str x21, [x24, x23, lsl #3]
-    adrp x24, var_const_flags@PAGE
-    add x24, x24, var_const_flags@PAGEOFF
+    LOAD_ADDR x24, var_const_flags
     str x25, [x24, x23, lsl #3]
-    adrp x24, var_types@PAGE
-    add x24, x24, var_types@PAGEOFF
+    LOAD_ADDR x24, var_types
     str x26, [x24, x23, lsl #3]
-    adrp x24, var_lengths@PAGE
-    add x24, x24, var_lengths@PAGEOFF
+    LOAD_ADDR x24, var_lengths
     str x27, [x24, x23, lsl #3]
     add x23, x23, #1
     str x23, [x22]
@@ -62,8 +56,7 @@ _define_variable:
     b Ldefine_return
 
 Ldefine_duplicate:
-    adrp x0, msg_duplicate_var@PAGE
-    add x0, x0, msg_duplicate_var@PAGEOFF
+    LOAD_ADDR x0, msg_duplicate_var
     bl _report_error_prefix
     mov x0, x19
     mov x1, x20
@@ -74,8 +67,7 @@ Ldefine_duplicate:
     b Ldefine_return
 
 Ldefine_full:
-    adrp x0, msg_too_many_vars@PAGE
-    add x0, x0, msg_too_many_vars@PAGEOFF
+    LOAD_ADDR x0, msg_too_many_vars
     mov x1, #2
     bl _write_cstr_fd
     mov x0, #1
@@ -100,22 +92,19 @@ _set_variable:
     mov x20, x1
     mov x21, x2
     mov x22, #0
-    adrp x23, var_count@PAGE
-    add x23, x23, var_count@PAGEOFF
+    LOAD_ADDR x23, var_count
     ldr x23, [x23]
 
 Lset_loop:
     cmp x22, x23
     b.ge Lset_unknown
 
-    adrp x9, var_name_lens@PAGE
-    add x9, x9, var_name_lens@PAGEOFF
+    LOAD_ADDR x9, var_name_lens
     ldr x10, [x9, x22, lsl #3]
     cmp x10, x20
     b.ne Lset_next
 
-    adrp x9, var_name_ptrs@PAGE
-    add x9, x9, var_name_ptrs@PAGEOFF
+    LOAD_ADDR x9, var_name_ptrs
     ldr x11, [x9, x22, lsl #3]
     mov x0, x19
     mov x1, x20
@@ -123,13 +112,11 @@ Lset_loop:
     bl _match_span_span
     cbz x0, Lset_next
 
-    adrp x9, var_const_flags@PAGE
-    add x9, x9, var_const_flags@PAGEOFF
+    LOAD_ADDR x9, var_const_flags
     ldr x10, [x9, x22, lsl #3]
     cbnz x10, Lset_const
 
-    adrp x9, var_values@PAGE
-    add x9, x9, var_values@PAGEOFF
+    LOAD_ADDR x9, var_values
     str x21, [x9, x22, lsl #3]
     mov x0, #0
     b Lset_return
@@ -139,8 +126,7 @@ Lset_next:
     b Lset_loop
 
 Lset_unknown:
-    adrp x0, msg_unknown_var@PAGE
-    add x0, x0, msg_unknown_var@PAGEOFF
+    LOAD_ADDR x0, msg_unknown_var
     bl _report_error_prefix
     mov x0, x19
     mov x1, x20
@@ -151,8 +137,7 @@ Lset_unknown:
     b Lset_return
 
 Lset_const:
-    adrp x0, msg_const_assign@PAGE
-    add x0, x0, msg_const_assign@PAGEOFF
+    LOAD_ADDR x0, msg_const_assign
     bl _report_error_prefix
     mov x0, x19
     mov x1, x20
@@ -177,22 +162,19 @@ _lookup_variable:
     mov x19, x0
     mov x20, x1
     mov x21, #0
-    adrp x22, var_count@PAGE
-    add x22, x22, var_count@PAGEOFF
+    LOAD_ADDR x22, var_count
     ldr x22, [x22]
 
 Llookup_loop:
     cmp x21, x22
     b.ge Llookup_fail
 
-    adrp x9, var_name_lens@PAGE
-    add x9, x9, var_name_lens@PAGEOFF
+    LOAD_ADDR x9, var_name_lens
     ldr x10, [x9, x21, lsl #3]
     cmp x10, x20
     b.ne Llookup_next
 
-    adrp x9, var_name_ptrs@PAGE
-    add x9, x9, var_name_ptrs@PAGEOFF
+    LOAD_ADDR x9, var_name_ptrs
     ldr x11, [x9, x21, lsl #3]
     mov x0, x19
     mov x1, x20
@@ -200,14 +182,11 @@ Llookup_loop:
     bl _match_span_span
     cbz x0, Llookup_next
 
-    adrp x9, var_values@PAGE
-    add x9, x9, var_values@PAGEOFF
+    LOAD_ADDR x9, var_values
     ldr x1, [x9, x21, lsl #3]
-    adrp x9, var_types@PAGE
-    add x9, x9, var_types@PAGEOFF
+    LOAD_ADDR x9, var_types
     ldr x2, [x9, x21, lsl #3]
-    adrp x9, var_lengths@PAGE
-    add x9, x9, var_lengths@PAGEOFF
+    LOAD_ADDR x9, var_lengths
     ldr x3, [x9, x21, lsl #3]
     mov x4, x21
     mov x0, #1
@@ -242,22 +221,19 @@ _set_variable_full:
     mov x25, x3
     mov x26, x4
     mov x22, #0
-    adrp x23, var_count@PAGE
-    add x23, x23, var_count@PAGEOFF
+    LOAD_ADDR x23, var_count
     ldr x23, [x23]
 
 Lset_full_loop:
     cmp x22, x23
     b.ge Lset_full_unknown
 
-    adrp x9, var_name_lens@PAGE
-    add x9, x9, var_name_lens@PAGEOFF
+    LOAD_ADDR x9, var_name_lens
     ldr x10, [x9, x22, lsl #3]
     cmp x10, x20
     b.ne Lset_full_next
 
-    adrp x9, var_name_ptrs@PAGE
-    add x9, x9, var_name_ptrs@PAGEOFF
+    LOAD_ADDR x9, var_name_ptrs
     ldr x11, [x9, x22, lsl #3]
     mov x0, x19
     mov x1, x20
@@ -265,19 +241,15 @@ Lset_full_loop:
     bl _match_span_span
     cbz x0, Lset_full_next
 
-    adrp x9, var_const_flags@PAGE
-    add x9, x9, var_const_flags@PAGEOFF
+    LOAD_ADDR x9, var_const_flags
     ldr x10, [x9, x22, lsl #3]
     cbnz x10, Lset_full_const
 
-    adrp x9, var_values@PAGE
-    add x9, x9, var_values@PAGEOFF
+    LOAD_ADDR x9, var_values
     str x21, [x9, x22, lsl #3]
-    adrp x9, var_types@PAGE
-    add x9, x9, var_types@PAGEOFF
+    LOAD_ADDR x9, var_types
     str x25, [x9, x22, lsl #3]
-    adrp x9, var_lengths@PAGE
-    add x9, x9, var_lengths@PAGEOFF
+    LOAD_ADDR x9, var_lengths
     str x26, [x9, x22, lsl #3]
     mov x0, #0
     b Lset_full_return
@@ -287,8 +259,7 @@ Lset_full_next:
     b Lset_full_loop
 
 Lset_full_unknown:
-    adrp x0, msg_unknown_var@PAGE
-    add x0, x0, msg_unknown_var@PAGEOFF
+    LOAD_ADDR x0, msg_unknown_var
     bl _report_error_prefix
     mov x0, x19
     mov x1, x20
@@ -299,8 +270,7 @@ Lset_full_unknown:
     b Lset_full_return
 
 Lset_full_const:
-    adrp x0, msg_const_assign@PAGE
-    add x0, x0, msg_const_assign@PAGEOFF
+    LOAD_ADDR x0, msg_const_assign
     bl _report_error_prefix
     mov x0, x19
     mov x1, x20
@@ -327,20 +297,16 @@ _record_print_value:
     mov x21, x1 // type
     mov x22, x2 // length
     mov x23, x2 // length
-    adrp x20, print_count@PAGE
-    add x20, x20, print_count@PAGEOFF
+    LOAD_ADDR x20, print_count
     ldr x9, [x20]
     cmp x9, #2048
     b.ge Lrecord_print_full
 
-    adrp x10, print_values@PAGE
-    add x10, x10, print_values@PAGEOFF
+    LOAD_ADDR x10, print_values
     str x19, [x10, x9, lsl #3]
-    adrp x10, print_types@PAGE
-    add x10, x10, print_types@PAGEOFF
+    LOAD_ADDR x10, print_types
     str x21, [x10, x9, lsl #3]
-    adrp x10, print_lengths@PAGE
-    add x10, x10, print_lengths@PAGEOFF
+    LOAD_ADDR x10, print_lengths
     str x22, [x10, x9, lsl #3]
     mov x19, x9
     add x9, x9, #1
@@ -351,8 +317,7 @@ _record_print_value:
     b Lrecord_print_return
 
 Lrecord_print_full:
-    adrp x0, msg_too_many_prints@PAGE
-    add x0, x0, msg_too_many_prints@PAGEOFF
+    LOAD_ADDR x0, msg_too_many_prints
     mov x1, #2
     bl _write_cstr_fd
     mov x0, #1
@@ -450,26 +415,20 @@ _record_operation3:
     mov x24, #0
 
 Lrecord_operation_common:
-    adrp x23, op_count@PAGE
-    add x23, x23, op_count@PAGEOFF
+    LOAD_ADDR x23, op_count
     ldr x9, [x23]
     cmp x9, #4096
     b.ge Lrecord_op_full
 
-    adrp x10, op_kinds@PAGE
-    add x10, x10, op_kinds@PAGEOFF
+    LOAD_ADDR x10, op_kinds
     str x19, [x10, x9, lsl #3]
-    adrp x10, op_arg0@PAGE
-    add x10, x10, op_arg0@PAGEOFF
+    LOAD_ADDR x10, op_arg0
     str x20, [x10, x9, lsl #3]
-    adrp x10, op_arg1@PAGE
-    add x10, x10, op_arg1@PAGEOFF
+    LOAD_ADDR x10, op_arg1
     str x21, [x10, x9, lsl #3]
-    adrp x10, op_arg2@PAGE
-    add x10, x10, op_arg2@PAGEOFF
+    LOAD_ADDR x10, op_arg2
     str x22, [x10, x9, lsl #3]
-    adrp x10, op_arg3@PAGE
-    add x10, x10, op_arg3@PAGEOFF
+    LOAD_ADDR x10, op_arg3
     str x24, [x10, x9, lsl #3]
     add x9, x9, #1
     str x9, [x23]
@@ -477,8 +436,7 @@ Lrecord_operation_common:
     b Lrecord_op_return
 
 Lrecord_op_full:
-    adrp x0, msg_too_many_ops@PAGE
-    add x0, x0, msg_too_many_ops@PAGEOFF
+    LOAD_ADDR x0, msg_too_many_ops
     mov x1, #2
     bl _write_cstr_fd
     mov x0, #1
@@ -492,17 +450,14 @@ Lrecord_op_return:
 
 .global _allocate_temp_var
 _allocate_temp_var:
-    adrp x9, var_count@PAGE
-    add x9, x9, var_count@PAGEOFF
+    LOAD_ADDR x9, var_count
     ldr x0, [x9]
     add x1, x0, #1
     str x1, [x9]
     
-    adrp x10, var_types@PAGE
-    add x10, x10, var_types@PAGEOFF
+    LOAD_ADDR x10, var_types
     str xzr, [x10, x0, lsl #3]
     
-    adrp x10, var_lengths@PAGE
-    add x10, x10, var_lengths@PAGEOFF
+    LOAD_ADDR x10, var_lengths
     str xzr, [x10, x0, lsl #3]
     ret

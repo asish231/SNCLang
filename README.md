@@ -1,8 +1,17 @@
 # snc
 
-`snc` is a tiny programming language compiler written in ARM64 assembly for macOS.
+`snc` is a tiny programming language compiler written in ARM64 assembly.
 
 It reads `.sn` source code and emits ARM64 assembly that can be assembled with `clang`.
+
+The source now includes a small platform macro layer for Mach-O and COFF symbol
+differences, so the compiler and emitted assembly can be built for:
+
+- macOS on ARM64
+- Windows on ARM64
+
+It is still an ARM64 codebase, so a typical x64 Windows machine can cross-build
+it but cannot run the resulting `snc.exe` natively.
 
 ## Architecture
 
@@ -18,7 +27,7 @@ The compiler is split by responsibility:
 
 The old single-file version is archived at `archive/snc.monolith.s`.
 
-Code generation currently emits runtime `_printf` calls for integer output. Most
+Code generation currently emits runtime `printf` calls for integer output. Most
 expressions are still evaluated by the compiler before emission. Integer and
 boolean variables now have runtime slots in emitted programs for declarations,
 assignments, direct `print(var)` loads, and simple runtime arithmetic of the form
@@ -106,6 +115,18 @@ Build the compiler:
 make
 ```
 
+On PowerShell, you can also build without `make`:
+
+```powershell
+./build.ps1
+```
+
+To cross-build from Windows for ARM64 explicitly:
+
+```powershell
+./build.ps1 -Target aarch64-windows-msvc
+```
+
 Emit assembly for the example:
 
 ```sh
@@ -131,3 +152,7 @@ Compile your own program:
 clang /tmp/out.s -o /tmp/out
 /tmp/out
 ```
+
+On Windows ARM64, the generated assembly now expects COFF/Windows-style symbol
+resolution and `printf` naming automatically when the assembler target is
+Windows.
