@@ -69,21 +69,28 @@ Lpreparse_loop:
     mov x22, x1
     mov x0, x21
     mov x1, x22
-    adrp x2, kw_fn@PAGE
-    add x2, x2, kw_fn@PAGEOFF
-    bl _match_cstr_span
-    cbz x0, Lpreparse_loop
-    bl _parse_fn_definition
-    cbnz x0, Lpreparse_fail
-    b Lpreparse_loop
+     adrp x2, kw_fn@PAGE
+     add x2, x2, kw_fn@PAGEOFF
+     bl _match_cstr_span
+     cbz x0, Lpreparse_matched_ident_no_fn
+     bl _parse_fn_definition
+     cbnz x0, Lpreparse_fail
+     b Lpreparse_loop
 
 Lpreparse_non_ident:
-    bl _peek_char
-    cmp w0, #'"'
-    b.ne Lpreparse_advance
-    bl _parse_string_literal
-    cbz x0, Lpreparse_fail
-    b Lpreparse_loop
+     bl _peek_char
+     cmp w0, #'"'
+     b.ne Lpreparse_advance
+     bl _parse_string_literal
+     cbz x0, Lpreparse_fail
+     b Lpreparse_loop
+
+Lpreparse_matched_ident_no_fn:
+     // Not 'fn', advance past the identifier to avoid infinite loop
+     mov x0, x21
+     mov x1, x22
+     bl _advance_past_span
+     b Lpreparse_loop
 
 Lpreparse_advance:
     bl _advance_char
@@ -119,13 +126,6 @@ _parse_statement:
     cbz x0, Lstmt_need_keyword
     mov x19, x0
     mov x20, x1
-
-    mov x0, x19
-    mov x1, x20
-    adrp x2, kw_let@PAGE
-    add x2, x2, kw_let@PAGEOFF
-    bl _match_cstr_span
-    cbnz x0, Lstmt_let
 
     mov x0, x19
     mov x1, x20
@@ -257,45 +257,6 @@ _parse_statement:
     bl _write_buffer_fd
     bl _write_newline_stderr
     b Lstmt_fail
-
-Lstmt_let:
-    bl _skip_whitespace
-    bl _parse_identifier
-    cbz x0, Lstmt_need_name
-    mov x19, x0
-    mov x20, x1
-
-    bl _skip_whitespace
-    mov w0, #'='
-    bl _expect_char
-    cbz x0, Lstmt_fail
-
-    bl _parse_expr_value
-    cbz x0, Lstmt_fail
-    cmp x2, #6
-    b.eq Lstmt_type_mismatch
-    mov x21, x1
-
-    bl _consume_optional_semicolon
-
-    mov x0, x19
-    mov x1, x20
-    mov x2, x21
-    mov x3, #0
-    mov x4, #0
-    bl _define_variable
-    cbnz x0, Lstmt_fail
-    mov x0, x19
-    mov x1, x20
-    bl _lookup_variable
-    cbz x0, Lstmt_fail
-    mov x0, x4
-    mov x1, x21
-    bl _record_store_variable
-    cbnz x0, Lstmt_fail
-
-    mov x0, #0
-    b Lstmt_return
 
 Lstmt_int:
     bl _skip_whitespace
@@ -1042,6 +1003,22 @@ Lstmt_assign_runtime_expr_record_imm:
     mov x1, x27
     mov x2, x21
     mov x3, x23
+
+    // --- DEBUG PRINT x23 ---
+    stp x0, x1, [sp, #-16]!
+    stp x2, x3, [sp, #-16]!
+    mov x0, x23
+    mov x1, #2
+    bl _write_u64_fd
+    adrp x0, newline_char@PAGE
+    add x0, x0, newline_char@PAGEOFF
+    mov x1, #1
+    mov x2, #2
+    bl _write_buffer_fd
+    ldp x2, x3, [sp], #16
+    ldp x0, x1, [sp], #16
+    // --- END DEBUG PRINT ---
+
     bl _record_operation3
 Lstmt_assign_runtime_record_done:
     cbnz x0, Lstmt_fail
@@ -1101,19 +1078,21 @@ Lstmt_assign_add:
     mov x1, x20
     bl _lookup_variable
     cbz x0, Lstmt_unknown_var_assign
-    mov x25, x1
-    mov x26, x2
-    mov x27, x3
+    mov x21, x4
     bl _parse_expr_value
     cbz x0, Lstmt_fail
-    cmp x26, #6
-    b.eq Lstmt_assign_add_dec
     cmp x2, #6
     b.eq Lstmt_type_mismatch
-    add x21, x25, x1
-    mov x22, x26
-    mov x24, x27
-    b Lstmt_assign_store
+    mov x22, #1
+    mov x23, x1
+    cmn x4, #1
+    b.eq Lstmt_assign_add_imm
+    mov x23, x4
+    mov x24, #1
+    b Lstmt_assign_runtime_expr_lookup
+Lstmt_assign_add_imm:
+    mov x24, #0
+    b Lstmt_assign_runtime_expr_lookup
 
 Lstmt_assign_add_dec:
     cmp x2, #6
@@ -1134,19 +1113,21 @@ Lstmt_assign_subtract:
     mov x1, x20
     bl _lookup_variable
     cbz x0, Lstmt_unknown_var_assign
-    mov x25, x1
-    mov x26, x2
-    mov x27, x3
+    mov x21, x4
     bl _parse_expr_value
     cbz x0, Lstmt_fail
-    cmp x26, #6
-    b.eq Lstmt_assign_sub_dec
     cmp x2, #6
     b.eq Lstmt_type_mismatch
-    sub x21, x25, x1
-    mov x22, x26
-    mov x24, x27
-    b Lstmt_assign_store
+    mov x22, #2
+    mov x23, x1
+    cmn x4, #1
+    b.eq Lstmt_assign_sub_imm
+    mov x23, x4
+    mov x24, #1
+    b Lstmt_assign_runtime_expr_lookup
+Lstmt_assign_sub_imm:
+    mov x24, #0
+    b Lstmt_assign_runtime_expr_lookup
 
 Lstmt_assign_sub_dec:
     cmp x2, #6
@@ -1167,19 +1148,21 @@ Lstmt_assign_multiply:
     mov x1, x20
     bl _lookup_variable
     cbz x0, Lstmt_unknown_var_assign
-    mov x25, x1
-    mov x26, x2
-    mov x27, x3
+    mov x21, x4
     bl _parse_expr_value
     cbz x0, Lstmt_fail
-    cmp x26, #6
-    b.eq Lstmt_assign_mul_dec
     cmp x2, #6
     b.eq Lstmt_type_mismatch
-    mul x21, x25, x1
-    mov x22, x26
-    mov x24, x27
-    b Lstmt_assign_store
+    mov x22, #3
+    mov x23, x1
+    cmn x4, #1
+    b.eq Lstmt_assign_mul_imm
+    mov x23, x4
+    mov x24, #1
+    b Lstmt_assign_runtime_expr_lookup
+Lstmt_assign_mul_imm:
+    mov x24, #0
+    b Lstmt_assign_runtime_expr_lookup
 
 Lstmt_assign_mul_dec:
     cmp x2, #6
@@ -1203,20 +1186,21 @@ Lstmt_assign_divide:
     mov x1, x20
     bl _lookup_variable
     cbz x0, Lstmt_unknown_var_assign
-    mov x25, x1
-    mov x26, x2
-    mov x27, x3
+    mov x21, x4
     bl _parse_expr_value
     cbz x0, Lstmt_fail
-    cbz x1, Lstmt_assign_divide_zero
-    cmp x26, #6
-    b.eq Lstmt_assign_div_dec
     cmp x2, #6
     b.eq Lstmt_type_mismatch
-    udiv x21, x25, x1
-    mov x22, x26
-    mov x24, x27
-    b Lstmt_assign_store
+    mov x22, #4
+    mov x23, x1
+    cmn x4, #1
+    b.eq Lstmt_assign_div_imm
+    mov x23, x4
+    mov x24, #1
+    b Lstmt_assign_runtime_expr_lookup
+Lstmt_assign_div_imm:
+    mov x24, #0
+    b Lstmt_assign_runtime_expr_lookup
 
 Lstmt_assign_div_dec:
     cmp x2, #6
@@ -1825,27 +1809,50 @@ Lfor_counted_restore:
     bl _expect_char
     cbz x0, Lfor_fail
 
-    // Save cursor for condition re-eval
-    adrp x9, cursor_pos@PAGE
-    add x9, x9, cursor_pos@PAGEOFF
+    // push old loop labels
+    adrp x9, current_loop_start@PAGE
+    add x9, x9, current_loop_start@PAGEOFF
     ldr x19, [x9]
-    adrp x9, current_line@PAGE
-    add x9, x9, current_line@PAGEOFF
+    adrp x9, current_loop_end@PAGE
+    add x9, x9, current_loop_end@PAGEOFF
     ldr x20, [x9]
 
-Lfor_iteration:
-    // Restore condition cursor
-    adrp x9, cursor_pos@PAGE
-    add x9, x9, cursor_pos@PAGEOFF
-    str x19, [x9]
-    adrp x9, current_line@PAGE
-    add x9, x9, current_line@PAGEOFF
-    str x20, [x9]
+    // allocate labels
+    bl _get_next_label
+    mov x21, x0 // start_label
+    bl _get_next_label
+    mov x22, x0 // end_label
+    bl _get_next_label
+    mov x23, x0 // update_label
+
+    // set new loop labels (skip goes to update)
+    adrp x9, current_loop_start@PAGE
+    add x9, x9, current_loop_start@PAGEOFF
+    str x23, [x9]
+    adrp x9, current_loop_end@PAGE
+    add x9, x9, current_loop_end@PAGEOFF
+    str x22, [x9]
+
+    // emit op 36 (start label)
+    mov x0, #36
+    mov x1, x21
+    mov x2, #0
+    mov x3, #0
+    mov x4, #0
+    bl _record_operation4
 
     // --- Parse condition ---
     bl _parse_condition_value
     cbz x0, Lfor_fail
-    mov x21, x1
+    mov x24, x1 // temp_var_id
+
+    // emit op 37 (while condition)
+    mov x0, #37
+    mov x1, x24
+    mov x2, x22
+    mov x3, #0
+    mov x4, #0
+    bl _record_operation4
 
     // Expect comma separator
     bl _skip_whitespace
@@ -1856,10 +1863,10 @@ Lfor_iteration:
     // Save update cursor
     adrp x9, cursor_pos@PAGE
     add x9, x9, cursor_pos@PAGEOFF
-    ldr x22, [x9]
+    ldr x25, [x9]
     adrp x9, current_line@PAGE
     add x9, x9, current_line@PAGEOFF
-    ldr x23, [x9]
+    ldr x26, [x9]
 
     // --- Skip over update expression (don't execute yet) ---
     // We need to find the closing ')' then '{'
@@ -1880,68 +1887,90 @@ Lfor_update_end:
     bl _expect_char
     cbz x0, Lfor_fail
 
-    // Save body cursor
-    adrp x9, cursor_pos@PAGE
-    add x9, x9, cursor_pos@PAGEOFF
-    ldr x24, [x9]
-    adrp x9, current_line@PAGE
-    add x9, x9, current_line@PAGEOFF
-    ldr x25, [x9]
-
-    // If condition is false, skip block and done
-    cbz x21, Lfor_skip_block_done
-
     // --- Execute body ---
 Lfor_body_loop:
     bl _skip_whitespace
     bl _peek_char
     cmp w0, #'}'
     b.eq Lfor_body_done
-    cbz w0, Lwhile_unclosed
+    cbz w0, Lfor_unclosed
     bl _parse_statement
     cbz x0, Lfor_body_loop
-    cmp x0, #2 // stop
-    b.eq Lfor_stop
-    cmp x0, #3 // skip
-    b.eq Lfor_body_skip_rest
+    cmp x0, #4 // return propagate
+    b.eq Lfor_return_propagate
     b Lfor_fail
 
-Lfor_body_skip_rest:
-    bl _skip_block_contents
-    cbnz x0, Lfor_fail
-    b Lfor_exec_update
+Lfor_return_propagate:
+    b Lfor_return
+
+Lfor_unclosed:
+    adrp x0, msg_expected_char@PAGE
+    add x0, x0, msg_expected_char@PAGEOFF
+    bl _report_error_prefix
+    adrp x0, close_brace_char@PAGE
+    add x0, x0, close_brace_char@PAGEOFF
+    mov x1, #1
+    mov x2, #2
+    bl _write_buffer_fd
+    bl _write_newline_stderr
+    b Lfor_fail
 
 Lfor_body_done:
     bl _advance_char
 
-Lfor_exec_update:
+    // emit op 46 (update label)
+    mov x0, #46
+    mov x1, x23
+    mov x2, #0
+    mov x3, #0
+    mov x4, #0
+    bl _record_operation4
+
+    // Save cursor after body
+    adrp x9, cursor_pos@PAGE
+    add x9, x9, cursor_pos@PAGEOFF
+    ldr x27, [x9]
+    adrp x9, current_line@PAGE
+    add x9, x9, current_line@PAGEOFF
+    ldr x28, [x9]
+
     // --- Execute update statement ---
     // Restore update cursor
     adrp x9, cursor_pos@PAGE
     add x9, x9, cursor_pos@PAGEOFF
-    str x22, [x9]
+    str x25, [x9]
     adrp x9, current_line@PAGE
     add x9, x9, current_line@PAGEOFF
-    str x23, [x9]
+    str x26, [x9]
 
     // Parse update as a statement (e.g. i += 1)
     bl _parse_statement
     cbnz x0, Lfor_fail
 
-    // Restore body cursor for next iteration
+    // Restore body cursor
     adrp x9, cursor_pos@PAGE
     add x9, x9, cursor_pos@PAGEOFF
-    str x24, [x9]
+    str x27, [x9]
     adrp x9, current_line@PAGE
     add x9, x9, current_line@PAGEOFF
-    str x25, [x9]
+    str x28, [x9]
 
-    // Skip the ')' and '{' again by jumping back to condition
-    b Lfor_iteration
+    // emit op 38 (for end label)
+    mov x0, #38
+    mov x1, x21
+    mov x2, x22
+    mov x3, #0
+    mov x4, #0
+    bl _record_operation4
 
-Lfor_stop:
-    bl _skip_block_contents
-    cbnz x0, Lfor_fail
+    // pop old loop labels
+    adrp x9, current_loop_start@PAGE
+    add x9, x9, current_loop_start@PAGEOFF
+    str x19, [x9]
+    adrp x9, current_loop_end@PAGE
+    add x9, x9, current_loop_end@PAGEOFF
+    str x20, [x9]
+
     mov x0, #0
     b Lfor_return
 
@@ -2619,9 +2648,17 @@ _parse_condition_value:
     cbz x0, Lcond_parse_first
     bl _parse_condition_value
     cbz x0, Lcond_fail
-    cmp x1, #0
-    cset x1, eq
+    mov x22, x1
+    bl _allocate_temp_var
+    mov x23, x0
+    mov x0, #44
+    mov x1, x22
+    mov x2, #0
+    mov x3, x23
+    mov x4, #0
+    bl _record_operation4
     mov x0, #1
+    mov x1, x23
     b Lcond_return
 
 Lcond_parse_first:
@@ -2651,15 +2688,31 @@ Lcond_logic_loop:
 Lcond_logic_and:
     bl _parse_condition_value
     cbz x0, Lcond_fail
-    and x19, x19, x1
+    mov x22, x1
+    bl _allocate_temp_var
+    mov x23, x0
+    mov x0, #42
+    mov x1, x19
+    mov x2, x22
+    mov x3, x23
+    mov x4, #0
+    bl _record_operation4
+    mov x19, x23
     b Lcond_logic_loop
 
 Lcond_logic_or:
     bl _parse_condition_value
     cbz x0, Lcond_fail
-    orr x19, x19, x1
-    cmp x19, #0
-    cset x19, ne
+    mov x22, x1
+    bl _allocate_temp_var
+    mov x23, x0
+    mov x0, #43
+    mov x1, x19
+    mov x2, x22
+    mov x3, x23
+    mov x4, #0
+    bl _record_operation4
+    mov x19, x23
     b Lcond_logic_loop
 
 Lcond_fail:
@@ -4358,10 +4411,47 @@ Lfn_call_fail:
     mov x0, #1
 
 Lfn_call_return:
-    ldp x27, x28, [sp], #16
-    ldp x25, x26, [sp], #16
-    ldp x23, x24, [sp], #16
-    ldp x21, x22, [sp], #16
-    ldp x19, x20, [sp], #16
-    ldp x29, x30, [sp], #16
-    ret
+     ldp x27, x28, [sp], #16
+     ldp x25, x26, [sp], #16
+     ldp x23, x24, [sp], #16
+     ldp x21, x22, [sp], #16
+     ldp x19, x20, [sp], #16
+     ldp x29, x30, [sp], #16
+     ret
+
+// Advance cursor past a span (ptr in x0, len in x1) by updating global cursor_pos and current_line
+_advance_past_span:
+     stp x29, x30, [sp, #-16]!
+     stp x19, x20, [sp, #-16]!
+     mov x19, x0  // ptr
+     mov x20, x1  // len
+     adrp x9, cursor_pos@PAGE
+     add x9, x9, cursor_pos@PAGEOFF
+     ldr x10, [x9]
+     add x10, x10, x20
+     str x10, [x9]
+     // Count newlines in the span to update current_line
+     mov x21, #0
+     adrp x29, source_ptr@PAGE
+     add x29, x29, source_ptr@PAGEOFF
+     ldr x29, [x29]
+     add x19, x29, x19
+_Ladvance_loop:
+     cbz x20, _Ladvance_done
+     ldrb w11, [x19], #1
+     sub x20, x20, #1
+     cmp w11, #10
+     b.ne _Ladvance_loop
+     add x21, x21, #1
+     b _Ladvance_loop
+_Ladvance_done:
+     cbz x21, _Ladvance_line_skip
+     adrp x9, current_line@PAGE
+     add x9, x9, current_line@PAGEOFF
+     ldr x10, [x9]
+     add x10, x10, x21
+     str x10, [x9]
+_Ladvance_line_skip:
+     ldp x19, x20, [sp], #16
+     ldp x29, x30, [sp], #16
+     ret

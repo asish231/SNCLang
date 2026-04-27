@@ -28,7 +28,6 @@
 .global msg_unknown_fn
 .global msg_wrong_arg_count
 .global msg_expected_arrow
-.global kw_let
 .global kw_print
 .global kw_int
 .global kw_bool
@@ -97,6 +96,9 @@
 .global asm_math_mul_x11_x10
 .global asm_math_div_x11_x10
 .global asm_math_mod_x11_x10
+.global asm_logic_and_x11_x10
+.global asm_logic_or_x11_x10
+.global asm_logic_not_x11
 .global asm_math_add_x1_x10
 .global asm_math_sub_x1_x10
 .global asm_math_mul_x1_x10
@@ -174,7 +176,7 @@
 msg_usage:         .asciz "usage: ./snc <source.sn>\n"
 msg_open_error:    .asciz "error: could not open "
 msg_read_error:    .asciz "error: failed to read source input\n"
-msg_truncated:     .asciz "warning: source truncated to 8191 bytes\n"
+msg_truncated:     .asciz "warning: source truncated to 65535 bytes\n"
 msg_on_line:       .asciz "line "
 msg_colon_space:   .asciz ": "
 msg_expected_stmt: .asciz "error: expected statement on "
@@ -200,7 +202,6 @@ msg_too_many_params: .asciz "error: too many parameters on "
 msg_unknown_fn:    .asciz "error: unknown function on "
 msg_wrong_arg_count: .asciz "error: wrong number of arguments on "
 msg_expected_arrow: .asciz "error: expected -> on "
-kw_let:            .asciz "let"
 kw_print:          .asciz "print"
 kw_int:            .asciz "int"
 kw_bool:           .asciz "bool"
@@ -304,6 +305,12 @@ asm_math_div_x1_x10:
     .asciz "    udiv x1, x1, x10\n"
 asm_math_mod_x1_x10:
     .asciz "    udiv x13, x1, x10\n    msub x1, x13, x10, x1\n"
+asm_logic_and_x11_x10:
+    .asciz "    cmp x11, #0\n    cset x11, ne\n    cmp x10, #0\n    cset x10, ne\n    and x11, x11, x10\n"
+asm_logic_or_x11_x10:
+    .asciz "    orr x11, x11, x10\n    cmp x11, #0\n    cset x11, ne\n"
+asm_logic_not_x11:
+    .asciz "    cmp x11, #0\n    cset x11, eq\n"
 asm_data_intro:
     .asciz "    mov w0, #0\n    mov sp, x29\n    ldp x29, x30, [sp], #16\n    ret\n\n.data\nprint_fmt_int:\n    .asciz \"%lld\\n\"\nprint_fmt_str:\n    .asciz \"%s\\n\"\n.align 3\n"
 asm_data_value_prefix:
@@ -363,7 +370,7 @@ close_brace_char:  .byte 125
 
 .bss
 .align 4
-buffer:         .space 8192
+buffer:         .space 65536       // 64KB source input
 number_buffer:  .space 32
 source_ptr:     .space 8
 source_len:     .space 8
@@ -375,35 +382,35 @@ op_count:       .space 8
 label_counter:  .space 8
 current_loop_start: .space 8
 current_loop_end: .space 8
-var_name_ptrs:  .space 512
-var_name_lens:  .space 512
-var_values:     .space 512
-var_lengths:    .space 512
-var_const_flags: .space 512
-var_types:       .space 512
+var_name_ptrs:  .space 4096        // 512 variables * 8 bytes
+var_name_lens:  .space 4096
+var_values:     .space 4096
+var_lengths:    .space 4096
+var_const_flags: .space 4096
+var_types:       .space 4096
 list_pool_count: .space 8
-list_pool_values: .space 4096
-list_pool_lengths: .space 4096
-print_values:   .space 2048
-print_lengths:  .space 2048
-print_types:    .space 2048
-op_kinds:       .space 4096
-op_arg0:        .space 4096
-op_arg1:        .space 4096
-op_arg2:        .space 4096
-op_arg3:        .space 4096
+list_pool_values: .space 32768     // 4096 list elements
+list_pool_lengths: .space 32768
+print_values:   .space 16384       // 2048 prints
+print_lengths:  .space 16384
+print_types:    .space 16384
+op_kinds:       .space 32768       // 4096 operations
+op_arg0:        .space 32768
+op_arg1:        .space 32768
+op_arg2:        .space 32768
+op_arg3:        .space 32768
 fn_count:       .space 8
-fn_name_ptrs:   .space 256        // 32 functions * 8 bytes
-fn_name_lens:   .space 256
-fn_body_cursors: .space 256
-fn_body_lines:  .space 256
-fn_param_counts: .space 256
-fn_return_types: .space 256
-fn_param_types: .space 1024       // 32 fns * 4 params * 8 bytes
-fn_param_lengths: .space 1024
-fn_param_name_ptrs: .space 1024
-fn_param_name_lens: .space 1024
-fn_return_decl_lengths: .space 256
+fn_name_ptrs:   .space 512         // 64 functions * 8 bytes
+fn_name_lens:   .space 512
+fn_body_cursors: .space 512
+fn_body_lines:  .space 512
+fn_param_counts: .space 512
+fn_return_types: .space 512
+fn_param_types: .space 2048        // 64 fns * 4 params * 8 bytes
+fn_param_lengths: .space 2048
+fn_param_name_ptrs: .space 2048
+fn_param_name_lens: .space 2048
+fn_return_decl_lengths: .space 512
 fn_return_value: .space 8
 fn_return_length: .space 8
 fn_return_flag:  .space 8

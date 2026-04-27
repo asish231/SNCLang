@@ -35,7 +35,7 @@ _define_variable:
     adrp x22, var_count@PAGE
     add x22, x22, var_count@PAGEOFF
     ldr x23, [x22]
-    cmp x23, #64
+    cmp x23, #512
     b.ge Ldefine_full
 
     adrp x24, var_name_ptrs@PAGE
@@ -330,7 +330,7 @@ _record_print_value:
     adrp x20, print_count@PAGE
     add x20, x20, print_count@PAGEOFF
     ldr x9, [x20]
-    cmp x9, #256
+    cmp x9, #2048
     b.ge Lrecord_print_full
 
     adrp x10, print_values@PAGE
@@ -453,7 +453,7 @@ Lrecord_operation_common:
     adrp x23, op_count@PAGE
     add x23, x23, op_count@PAGEOFF
     ldr x9, [x23]
-    cmp x9, #512
+    cmp x9, #4096
     b.ge Lrecord_op_full
 
     adrp x10, op_kinds@PAGE

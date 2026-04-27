@@ -1,5 +1,7 @@
-let a = 10;
-let b = 4;
-let total = a + b * 3;
-print total;
-print total - 2;
+fn main() {
+    int a = 10
+    int b = 4
+    int total = a + b * 3
+    print(total)
+    print(total - 2)
+}
