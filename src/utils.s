@@ -333,3 +333,12 @@ Lstrlen_loop:
 
 Lstrlen_done:
     ret
+
+.global _get_next_label
+_get_next_label:
+    adrp x9, label_counter@PAGE
+    add x9, x9, label_counter@PAGEOFF
+    ldr x0, [x9]
+    add x1, x0, #1
+    str x1, [x9]
+    ret

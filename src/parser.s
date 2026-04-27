@@ -851,12 +851,28 @@ Lstmt_for:
 
 Lstmt_stop:
     bl _consume_optional_semicolon
-    mov x0, #2 // special return code: stop
+    // emit jump to loop end
+    adrp x9, current_loop_end@PAGE
+    add x9, x9, current_loop_end@PAGEOFF
+    ldr x1, [x9]
+    mov x0, #41
+    mov x2, #0
+    mov x3, #0
+    bl _record_operation
+    mov x0, #0
     b Lstmt_return
 
 Lstmt_skip:
     bl _consume_optional_semicolon
-    mov x0, #3 // special return code: skip
+    // emit jump to loop start
+    adrp x9, current_loop_start@PAGE
+    add x9, x9, current_loop_start@PAGEOFF
+    ldr x1, [x9]
+    mov x0, #41
+    mov x2, #0
+    mov x3, #0
+    bl _record_operation
+    mov x0, #0
     b Lstmt_return
 
 Lstmt_match:
@@ -1447,116 +1463,78 @@ _parse_if_statement_after_keyword:
     mov x29, sp
     stp x19, x20, [sp, #-16]!
     stp x21, x22, [sp, #-16]!
+    stp x23, x24, [sp, #-16]!
 
     bl _skip_whitespace
     mov w0, #'('
     bl _expect_char
-    cbz x0, Lif_parse_fail
+    cbz x0, Lif_fail
 
     bl _parse_condition_value
-    cbz x0, Lif_parse_fail
-    mov x19, x1
+    cbz x0, Lif_fail
+    mov x19, x1 // temp_var_id
 
     bl _skip_whitespace
     mov w0, #')'
     bl _expect_char
-    cbz x0, Lif_parse_fail
+    cbz x0, Lif_fail
 
     bl _skip_whitespace
     mov w0, #'{'
     bl _expect_char
-    cbz x0, Lif_parse_fail
+    cbz x0, Lif_fail
 
-    cbz x19, Lif_skip_then
+    // allocate labels
+    bl _get_next_label
+    mov x20, x0 // else_label
+    bl _get_next_label
+    mov x21, x0 // end_label
 
-Lif_then_loop:
+    // emit op 33 (if start)
+    mov x0, #33
+    mov x1, x19
+    mov x2, x20
+    mov x3, #0
+    mov x4, #0
+    bl _record_operation4
+
+Lif_body_loop:
     bl _skip_whitespace
     bl _peek_char
     cmp w0, #'}'
-    b.eq Lif_then_done
+    b.eq Lif_body_done
     cbz w0, Lif_unclosed
     bl _parse_statement
-    cbz x0, Lif_then_loop
-    cmp x0, #2
-    b.eq Lif_then_stop_skip
-    cmp x0, #3
-    b.eq Lif_then_stop_skip
+    cbz x0, Lif_body_loop
     cmp x0, #4
-    b.eq Lif_then_stop_skip
-    b Lif_parse_fail
+    b.eq Lif_return_propagate
+    b Lif_fail
 
-Lif_then_done:
-    bl _advance_char
-    bl _consume_optional_else
-    cbz x0, Lif_done
-
-    adrp x0, kw_if@PAGE
-    add x0, x0, kw_if@PAGEOFF
-    bl _consume_keyword
-    cbz x0, Lif_skip_else_block
-    bl _skip_if_statement_after_keyword
-    cbnz x0, Lif_parse_fail
-    b Lif_done
-
-Lif_then_stop_skip:
-    // Propagate stop/skip: skip rest of then-block, skip else if present, return code
-    mov x20, x0
-    bl _skip_block_contents
-    cbnz x0, Lif_parse_fail
-    bl _consume_optional_else
-    cbz x0, Lif_propagate_code
-    adrp x0, kw_if@PAGE
-    add x0, x0, kw_if@PAGEOFF
-    bl _consume_keyword
-    cbz x0, Lif_then_stop_skip_else_block
-    bl _skip_if_statement_after_keyword
-    cbnz x0, Lif_parse_fail
-    b Lif_propagate_code
-Lif_then_stop_skip_else_block:
-    bl _skip_whitespace
-    mov w0, #'{'
-    bl _expect_char
-    cbz x0, Lif_parse_fail
-    bl _skip_block_contents
-    cbnz x0, Lif_parse_fail
-Lif_propagate_code:
-    mov x0, x20
+Lif_return_propagate:
     b Lif_return
 
-Lif_skip_else_block:
+Lif_body_done:
+    bl _advance_char
+
+    // emit op 34 (if else label)
+    mov x0, #34
+    mov x1, x20
+    mov x2, x21
+    mov x3, #0
+    mov x4, #0
+    bl _record_operation4
+
+    // check for else
     bl _skip_whitespace
-    mov w0, #'{'
-    bl _expect_char
-    cbz x0, Lif_parse_fail
-    bl _skip_block_contents
-    cbnz x0, Lif_parse_fail
-    b Lif_done
-
-Lif_skip_then:
-    bl _skip_block_contents
-    cbnz x0, Lif_parse_fail
-    bl _consume_optional_else
-    cbz x0, Lif_done
-
-    adrp x0, kw_if@PAGE
-    add x0, x0, kw_if@PAGEOFF
+    adrp x0, kw_else@PAGE
+    add x0, x0, kw_else@PAGEOFF
     bl _consume_keyword
-    cbz x0, Lif_execute_else_block
-    bl _parse_if_statement_after_keyword
-    cbz x0, Lif_done
-    cmp x0, #2
-    b.eq Lif_return  // propagate stop
-    cmp x0, #3
-    b.eq Lif_return  // propagate skip
-    cmp x0, #4
-    b.eq Lif_return  // propagate return
-    b Lif_parse_fail
+    cbz x0, Lif_no_else
 
-Lif_execute_else_block:
     bl _skip_whitespace
     mov w0, #'{'
     bl _expect_char
-    cbz x0, Lif_parse_fail
+    cbz x0, Lif_check_else_if
 
 Lif_else_loop:
     bl _skip_whitespace
@@ -1566,24 +1544,38 @@ Lif_else_loop:
     cbz w0, Lif_unclosed
     bl _parse_statement
     cbz x0, Lif_else_loop
-    cmp x0, #2
-    b.eq Lif_else_stop_skip
-    cmp x0, #3
-    b.eq Lif_else_stop_skip
     cmp x0, #4
-    b.eq Lif_else_stop_skip
-    b Lif_parse_fail
+    b.eq Lif_return_propagate
+    b Lif_fail
 
-Lif_else_stop_skip:
-    mov x20, x0
-    bl _skip_block_contents
-    cbnz x0, Lif_parse_fail
-    mov x0, x20
-    b Lif_return
+Lif_check_else_if:
+    adrp x0, kw_if@PAGE
+    add x0, x0, kw_if@PAGEOFF
+    bl _consume_keyword
+    cbz x0, Lif_fail
+    bl _parse_if_statement_after_keyword
+    cbz x0, Lif_else_done
+    cmp x0, #4
+    b.eq Lif_return_propagate
+    b Lif_fail
 
 Lif_else_done:
+    bl _peek_char
+    cmp w0, #'}'
+    b.ne Lif_no_else
     bl _advance_char
-    b Lif_done
+
+Lif_no_else:
+    // emit op 35 (if end label)
+    mov x0, #35
+    mov x1, x21
+    mov x2, #0
+    mov x3, #0
+    mov x4, #0
+    bl _record_operation4
+
+    mov x0, #0
+    b Lif_return
 
 Lif_unclosed:
     adrp x0, msg_expected_char@PAGE
@@ -1595,15 +1587,14 @@ Lif_unclosed:
     mov x2, #2
     bl _write_buffer_fd
     bl _write_newline_stderr
+    b Lif_fail
 
-Lif_parse_fail:
+Lif_fail:
     mov x0, #1
     b Lif_return
 
-Lif_done:
-    mov x0, #0
-
 Lif_return:
+    ldp x23, x24, [sp], #16
     ldp x21, x22, [sp], #16
     ldp x19, x20, [sp], #16
     ldp x29, x30, [sp], #16
@@ -1662,20 +1653,35 @@ _parse_while_statement_after_keyword:
     stp x21, x22, [sp, #-16]!
     stp x23, x24, [sp, #-16]!
 
-    adrp x9, cursor_pos@PAGE
-    add x9, x9, cursor_pos@PAGEOFF
+    // push old loop labels
+    adrp x9, current_loop_start@PAGE
+    add x9, x9, current_loop_start@PAGEOFF
     ldr x19, [x9]
-    adrp x9, current_line@PAGE
-    add x9, x9, current_line@PAGEOFF
+    adrp x9, current_loop_end@PAGE
+    add x9, x9, current_loop_end@PAGEOFF
     ldr x20, [x9]
 
-Lwhile_loop:
-    adrp x9, cursor_pos@PAGE
-    add x9, x9, cursor_pos@PAGEOFF
-    str x19, [x9]
-    adrp x9, current_line@PAGE
-    add x9, x9, current_line@PAGEOFF
-    str x20, [x9]
+    // allocate labels
+    bl _get_next_label
+    mov x21, x0 // start_label
+    bl _get_next_label
+    mov x22, x0 // end_label
+
+    // set new loop labels
+    adrp x9, current_loop_start@PAGE
+    add x9, x9, current_loop_start@PAGEOFF
+    str x21, [x9]
+    adrp x9, current_loop_end@PAGE
+    add x9, x9, current_loop_end@PAGEOFF
+    str x22, [x9]
+
+    // emit op 36 (while start label)
+    mov x0, #36
+    mov x1, x21
+    mov x2, #0
+    mov x3, #0
+    mov x4, #0
+    bl _record_operation4
 
     bl _skip_whitespace
     mov w0, #'('
@@ -1684,7 +1690,15 @@ Lwhile_loop:
 
     bl _parse_condition_value
     cbz x0, Lwhile_fail
-    mov x21, x1
+    mov x23, x1 // temp_var_id
+
+    // emit op 37 (while condition)
+    mov x0, #37
+    mov x1, x23
+    mov x2, x22
+    mov x3, #0
+    mov x4, #0
+    bl _record_operation4
 
     bl _skip_whitespace
     mov w0, #')'
@@ -1696,8 +1710,6 @@ Lwhile_loop:
     bl _expect_char
     cbz x0, Lwhile_fail
 
-    cbz x21, Lwhile_skip_block_and_done
-
 Lwhile_body_loop:
     bl _skip_whitespace
     bl _peek_char
@@ -1706,32 +1718,32 @@ Lwhile_body_loop:
     cbz w0, Lwhile_unclosed
     bl _parse_statement
     cbz x0, Lwhile_body_loop
-    cmp x0, #2 // stop
-    b.eq Lwhile_stop
-    cmp x0, #3 // skip
-    b.eq Lwhile_skip
+    cmp x0, #4
+    b.eq Lwhile_return_propagate
     b Lwhile_fail
 
-Lwhile_stop:
-    // skip rest of block, then exit loop
-    bl _skip_block_contents
-    cbnz x0, Lwhile_fail
-    mov x0, #0
+Lwhile_return_propagate:
     b Lwhile_return
-
-Lwhile_skip:
-    // skip rest of block, then re-enter loop
-    bl _skip_block_contents
-    cbnz x0, Lwhile_fail
-    b Lwhile_loop
 
 Lwhile_body_done:
     bl _advance_char
-    b Lwhile_loop
 
-Lwhile_skip_block_and_done:
-    bl _skip_block_contents
-    cbnz x0, Lwhile_fail
+    // emit op 38 (while end label)
+    mov x0, #38
+    mov x1, x21
+    mov x2, x22
+    mov x3, #0
+    mov x4, #0
+    bl _record_operation4
+
+    // pop old loop labels
+    adrp x9, current_loop_start@PAGE
+    add x9, x9, current_loop_start@PAGEOFF
+    str x19, [x9]
+    adrp x9, current_loop_end@PAGE
+    add x9, x9, current_loop_end@PAGEOFF
+    str x20, [x9]
+
     mov x0, #0
     b Lwhile_return
 
@@ -1745,9 +1757,11 @@ Lwhile_unclosed:
     mov x2, #2
     bl _write_buffer_fd
     bl _write_newline_stderr
+    b Lwhile_fail
 
 Lwhile_fail:
     mov x0, #1
+    b Lwhile_return
 
 Lwhile_return:
     ldp x23, x24, [sp], #16
@@ -2663,12 +2677,12 @@ _parse_condition_atom:
     mov x29, sp
     stp x19, x20, [sp, #-16]!
     stp x21, x22, [sp, #-16]!
+    stp x23, x24, [sp, #-16]!
 
     bl _parse_expr_value
     cbz x0, Lcond_atom_fail
-    mov x19, x1
-    mov x20, x2
-    mov x21, x3
+    mov x19, x4 // left var slot id (or -1 if immediate)
+    mov x20, x1 // left value (for immediate case)
 
     bl _skip_whitespace
     bl _peek_char
@@ -2681,162 +2695,95 @@ _parse_condition_atom:
     cmp w0, #'<'
     b.eq Lcond_less
 
-    cmp x19, #0
-    cset x1, ne
-    mov x0, #1
-    b Lcond_atom_return
+    // no op -> compare left var with immediate 0 using NE
+    mov x21, #1 // NE
+    mov x22, #-1 // right is immediate (no var slot)
+    mov x23, #0 // right value is 0
+    b Lcond_emit_op
 
 Lcond_equal:
     bl _advance_char
     mov w0, #'='
     bl _expect_char
     cbz x0, Lcond_atom_fail
-    bl _parse_expr_value
-    cbz x0, Lcond_atom_fail
-    cmp x20, #6
-    b.eq Lcond_check_dec_eq
-    cmp x2, #6
-    b.eq Lcond_atom_type_mismatch
-    b Lcond_do_eq
-Lcond_check_dec_eq:
-    cmp x2, #6
-    b.ne Lcond_atom_type_mismatch
-    cmp x3, x21
-    b.ne Lcond_atom_scale_error
-Lcond_do_eq:
-    cmp x19, x1
-    cset x1, eq
-    mov x0, #1
-    b Lcond_atom_return
+    mov x21, #0 // EQ
+    b Lcond_parse_right
 
 Lcond_not_equal:
     bl _advance_char
     mov w0, #'='
     bl _expect_char
     cbz x0, Lcond_atom_fail
-    bl _parse_expr_value
-    cbz x0, Lcond_atom_fail
-    cmp x20, #6
-    b.eq Lcond_check_dec_ne
-    cmp x2, #6
-    b.eq Lcond_atom_type_mismatch
-    b Lcond_do_ne
-Lcond_check_dec_ne:
-    cmp x2, #6
-    b.ne Lcond_atom_type_mismatch
-    cmp x3, x21
-    b.ne Lcond_atom_scale_error
-Lcond_do_ne:
-    cmp x19, x1
-    cset x1, ne
-    mov x0, #1
-    b Lcond_atom_return
+    mov x21, #1 // NE
+    b Lcond_parse_right
 
 Lcond_greater:
     bl _advance_char
     bl _peek_char
     cmp w0, #'='
-    b.eq Lcond_greater_equal
-    bl _parse_expr_value
-    cbz x0, Lcond_atom_fail
-    cmp x20, #6
-    b.eq Lcond_check_dec_gt
-    cmp x2, #6
-    b.eq Lcond_atom_type_mismatch
-    b Lcond_do_gt
-Lcond_check_dec_gt:
-    cmp x2, #6
-    b.ne Lcond_atom_type_mismatch
-    cmp x3, x21
-    b.ne Lcond_atom_scale_error
-Lcond_do_gt:
-    cmp x19, x1
-    cset x1, gt
-    mov x0, #1
-    b Lcond_atom_return
-
-Lcond_greater_equal:
+    b.eq Lcond_ge
+    mov x21, #2 // GT
+    b Lcond_parse_right
+Lcond_ge:
     bl _advance_char
-    bl _parse_expr_value
-    cbz x0, Lcond_atom_fail
-    cmp x20, #6
-    b.eq Lcond_check_dec_ge
-    cmp x2, #6
-    b.eq Lcond_atom_type_mismatch
-    b Lcond_do_ge
-Lcond_check_dec_ge:
-    cmp x2, #6
-    b.ne Lcond_atom_type_mismatch
-    cmp x3, x21
-    b.ne Lcond_atom_scale_error
-Lcond_do_ge:
-    cmp x19, x1
-    cset x1, ge
-    mov x0, #1
-    b Lcond_atom_return
+    mov x21, #4 // GE
+    b Lcond_parse_right
 
 Lcond_less:
     bl _advance_char
     bl _peek_char
     cmp w0, #'='
-    b.eq Lcond_less_equal
-    bl _parse_expr_value
-    cbz x0, Lcond_atom_fail
-    cmp x20, #6
-    b.eq Lcond_check_dec_lt
-    cmp x2, #6
-    b.eq Lcond_atom_type_mismatch
-    b Lcond_do_lt
-Lcond_check_dec_lt:
-    cmp x2, #6
-    b.ne Lcond_atom_type_mismatch
-    cmp x3, x21
-    b.ne Lcond_atom_scale_error
-Lcond_do_lt:
-    cmp x19, x1
-    cset x1, lt
-    mov x0, #1
-    b Lcond_atom_return
-
-Lcond_less_equal:
+    b.eq Lcond_le
+    mov x21, #3 // LT
+    b Lcond_parse_right
+Lcond_le:
     bl _advance_char
+    mov x21, #5 // LE
+    b Lcond_parse_right
+
+Lcond_parse_right:
     bl _parse_expr_value
     cbz x0, Lcond_atom_fail
-    cmp x20, #6
-    b.eq Lcond_check_dec_le
-    cmp x2, #6
-    b.eq Lcond_atom_type_mismatch
-    b Lcond_do_le
-Lcond_check_dec_le:
-    cmp x2, #6
-    b.ne Lcond_atom_type_mismatch
-    cmp x3, x21
-    b.ne Lcond_atom_scale_error
-Lcond_do_le:
-    cmp x19, x1
-    cset x1, le
+    mov x22, x4 // right var slot id (or -1 if immediate)
+    mov x23, x1 // right value (for immediate case)
+
+Lcond_emit_op:
+    // allocate temp var
+    bl _allocate_temp_var
+    mov x24, x0 // dest temp var id
+
+    cmn x22, #1 // right var slot == -1 means immediate
+    b.eq Lcond_emit_imm
+    
+    // right is var
+    mov x0, #40 // op cmp var
+    mov x1, x19 // left var
+    mov x2, x22 // right var
+    mov x3, x21 // operator
+    mov x4, x24 // dest temp var
+    bl _record_operation4
+    b Lcond_atom_done
+
+Lcond_emit_imm:
+    mov x0, #39 // op cmp imm
+    mov x1, x19 // left var slot
+    mov x2, x23 // right immediate value
+    mov x3, x21 // operator
+    mov x4, x24 // dest temp var
+    bl _record_operation4
+
+Lcond_atom_done:
     mov x0, #1
+    mov x1, x24 // return temp var id
+    mov x2, #1  // type = var
     b Lcond_atom_return
 
 Lcond_atom_fail:
     mov x0, #0
     mov x1, #0
 
-Lcond_atom_type_mismatch:
-    adrp x0, msg_type_mismatch@PAGE
-    add x0, x0, msg_type_mismatch@PAGEOFF
-    bl _report_error_prefix
-    bl _write_newline_stderr
-    b Lcond_atom_fail
-
-Lcond_atom_scale_error:
-    adrp x0, msg_decimal_scale@PAGE
-    add x0, x0, msg_decimal_scale@PAGEOFF
-    bl _report_error_prefix
-    bl _write_newline_stderr
-    b Lcond_atom_fail
-
 Lcond_atom_return:
+    ldp x23, x24, [sp], #16
     ldp x21, x22, [sp], #16
     ldp x19, x20, [sp], #16
     ldp x29, x30, [sp], #16

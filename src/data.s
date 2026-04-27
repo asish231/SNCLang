@@ -126,6 +126,8 @@
 .global single_char
 .global close_brace_char
 .global label_counter
+.global current_loop_start
+.global current_loop_end
 .global buffer
 .global number_buffer
 .global source_ptr
@@ -151,6 +153,7 @@
 .global op_arg0
 .global op_arg1
 .global op_arg2
+.global op_arg3
 .global fn_count
 .global fn_name_ptrs
 .global fn_name_lens
@@ -370,6 +373,8 @@ var_count:      .space 8
 print_count:    .space 8
 op_count:       .space 8
 label_counter:  .space 8
+current_loop_start: .space 8
+current_loop_end: .space 8
 var_name_ptrs:  .space 512
 var_name_lens:  .space 512
 var_values:     .space 512
@@ -386,6 +391,7 @@ op_kinds:       .space 4096
 op_arg0:        .space 4096
 op_arg1:        .space 4096
 op_arg2:        .space 4096
+op_arg3:        .space 4096
 fn_count:       .space 8
 fn_name_ptrs:   .space 256        // 32 functions * 8 bytes
 fn_name_lens:   .space 256

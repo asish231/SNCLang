@@ -9,6 +9,7 @@
 .global _record_print_variable
 .global _record_operation
 .global _record_operation3
+.global _record_operation4
 
 _define_variable:
     stp x29, x30, [sp, #-16]!
@@ -421,6 +422,20 @@ _record_operation:
     mov x22, #0
     b Lrecord_operation_common
 
+_record_operation4:
+    stp x29, x30, [sp, #-16]!
+    mov x29, sp
+    stp x19, x20, [sp, #-16]!
+    stp x21, x22, [sp, #-16]!
+    stp x23, x24, [sp, #-16]!
+
+    mov x19, x0
+    mov x20, x1
+    mov x21, x2
+    mov x22, x3
+    mov x24, x4
+    b Lrecord_operation_common
+
 _record_operation3:
     stp x29, x30, [sp, #-16]!
     mov x29, sp
@@ -432,6 +447,7 @@ _record_operation3:
     mov x20, x1
     mov x21, x2
     mov x22, x3
+    mov x24, #0
 
 Lrecord_operation_common:
     adrp x23, op_count@PAGE
@@ -452,6 +468,9 @@ Lrecord_operation_common:
     adrp x10, op_arg2@PAGE
     add x10, x10, op_arg2@PAGEOFF
     str x22, [x10, x9, lsl #3]
+    adrp x10, op_arg3@PAGE
+    add x10, x10, op_arg3@PAGEOFF
+    str x24, [x10, x9, lsl #3]
     add x9, x9, #1
     str x9, [x23]
     mov x0, #0
@@ -469,4 +488,21 @@ Lrecord_op_return:
     ldp x21, x22, [sp], #16
     ldp x19, x20, [sp], #16
     ldp x29, x30, [sp], #16
+    ret
+
+.global _allocate_temp_var
+_allocate_temp_var:
+    adrp x9, var_count@PAGE
+    add x9, x9, var_count@PAGEOFF
+    ldr x0, [x9]
+    add x1, x0, #1
+    str x1, [x9]
+    
+    adrp x10, var_types@PAGE
+    add x10, x10, var_types@PAGEOFF
+    str xzr, [x10, x0, lsl #3]
+    
+    adrp x10, var_lengths@PAGE
+    add x10, x10, var_lengths@PAGEOFF
+    str xzr, [x10, x0, lsl #3]
     ret

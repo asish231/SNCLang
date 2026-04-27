@@ -112,6 +112,25 @@ _emit_operation:
     b.eq Lemit_op_print_var
     cmp x21, #7
     b.le Lemit_op_store_math_imm
+
+    cmp x21, #33
+    b.eq Lemit_op_if_start
+    cmp x21, #34
+    b.eq Lemit_op_if_else
+    cmp x21, #35
+    b.eq Lemit_op_if_end
+    cmp x21, #36
+    b.eq Lemit_op_while_start
+    cmp x21, #37
+    b.eq Lemit_op_while_cond
+    cmp x21, #38
+    b.eq Lemit_op_while_end
+    cmp x21, #39
+    b.eq Lemit_op_cmp_imm
+    cmp x21, #40
+    b.eq Lemit_op_cmp_var
+    cmp x21, #41
+    b.eq Lemit_op_jump
     cmp x21, #12
     b.le Lemit_op_print_math_imm
     cmp x21, #17
@@ -483,6 +502,364 @@ Lemit_op_done:
     ret
 
 _emit_math_opcode_x11:
+
+
+Lemit_op_if_start:
+    // load var into x11
+    adrp x0, asm_math_var_x11_ldr@PAGE
+    add x0, x0, asm_math_var_x11_ldr@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+    
+    adrp x20, op_arg0@PAGE
+    add x20, x20, op_arg0@PAGEOFF
+    ldr x0, [x20, x19, lsl #3]
+    mov x1, #1
+    bl _write_stack_offset_fd
+    
+    adrp x0, asm_close_bracket@PAGE
+    add x0, x0, asm_close_bracket@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+    
+    // cbz x11, L_snl_ELSE
+    adrp x0, asm_branch_zero@PAGE
+    add x0, x0, asm_branch_zero@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+    
+    adrp x20, op_arg1@PAGE
+    add x20, x20, op_arg1@PAGEOFF
+    ldr x0, [x20, x19, lsl #3]
+    mov x1, #1
+    bl _write_u64_fd
+    
+    adrp x0, newline_char@PAGE
+    add x0, x0, newline_char@PAGEOFF
+    mov x1, #1
+    mov x2, #1
+    bl _write_buffer_fd
+    
+    b Lemit_op_done
+
+Lemit_op_if_else:
+    // branch to END (op_arg1)
+    adrp x0, asm_branch@PAGE
+    add x0, x0, asm_branch@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+    
+    adrp x20, op_arg1@PAGE
+    add x20, x20, op_arg1@PAGEOFF
+    ldr x0, [x20, x19, lsl #3]
+    mov x1, #1
+    bl _write_u64_fd
+    
+    adrp x0, newline_char@PAGE
+    add x0, x0, newline_char@PAGEOFF
+    mov x1, #1
+    mov x2, #1
+    bl _write_buffer_fd
+    
+    // place ELSE label (op_arg0)
+    adrp x0, asm_label_prefix@PAGE
+    add x0, x0, asm_label_prefix@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+    
+    adrp x20, op_arg0@PAGE
+    add x20, x20, op_arg0@PAGEOFF
+    ldr x0, [x20, x19, lsl #3]
+    mov x1, #1
+    bl _write_u64_fd
+    
+    adrp x0, asm_label_suffix@PAGE
+    add x0, x0, asm_label_suffix@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+    
+    b Lemit_op_done
+
+Lemit_op_if_end:
+    // place END label (op_arg0)
+    adrp x0, asm_label_prefix@PAGE
+    add x0, x0, asm_label_prefix@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+    
+    adrp x20, op_arg0@PAGE
+    add x20, x20, op_arg0@PAGEOFF
+    ldr x0, [x20, x19, lsl #3]
+    mov x1, #1
+    bl _write_u64_fd
+    
+    adrp x0, asm_label_suffix@PAGE
+    add x0, x0, asm_label_suffix@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+    
+    b Lemit_op_done
+
+Lemit_op_while_start:
+    // place START label (op_arg0)
+    adrp x0, asm_label_prefix@PAGE
+    add x0, x0, asm_label_prefix@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+    
+    adrp x20, op_arg0@PAGE
+    add x20, x20, op_arg0@PAGEOFF
+    ldr x0, [x20, x19, lsl #3]
+    mov x1, #1
+    bl _write_u64_fd
+    
+    adrp x0, asm_label_suffix@PAGE
+    add x0, x0, asm_label_suffix@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+    
+    b Lemit_op_done
+
+Lemit_op_while_cond:
+    // load var into x11
+    adrp x0, asm_math_var_x11_ldr@PAGE
+    add x0, x0, asm_math_var_x11_ldr@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+    
+    adrp x20, op_arg0@PAGE
+    add x20, x20, op_arg0@PAGEOFF
+    ldr x0, [x20, x19, lsl #3]
+    mov x1, #1
+    bl _write_stack_offset_fd
+    
+    adrp x0, asm_close_bracket@PAGE
+    add x0, x0, asm_close_bracket@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+    
+    // cbz x11, L_snl_END
+    adrp x0, asm_branch_zero@PAGE
+    add x0, x0, asm_branch_zero@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+    
+    adrp x20, op_arg1@PAGE
+    add x20, x20, op_arg1@PAGEOFF
+    ldr x0, [x20, x19, lsl #3]
+    mov x1, #1
+    bl _write_u64_fd
+    
+    adrp x0, newline_char@PAGE
+    add x0, x0, newline_char@PAGEOFF
+    mov x1, #1
+    mov x2, #1
+    bl _write_buffer_fd
+    
+    b Lemit_op_done
+
+Lemit_op_while_end:
+    // branch to START (op_arg0)
+    adrp x0, asm_branch@PAGE
+    add x0, x0, asm_branch@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+    
+    adrp x20, op_arg0@PAGE
+    add x20, x20, op_arg0@PAGEOFF
+    ldr x0, [x20, x19, lsl #3]
+    mov x1, #1
+    bl _write_u64_fd
+    
+    adrp x0, newline_char@PAGE
+    add x0, x0, newline_char@PAGEOFF
+    mov x1, #1
+    mov x2, #1
+    bl _write_buffer_fd
+    
+    // place END label (op_arg1)
+    adrp x0, asm_label_prefix@PAGE
+    add x0, x0, asm_label_prefix@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+    
+    adrp x20, op_arg1@PAGE
+    add x20, x20, op_arg1@PAGEOFF
+    ldr x0, [x20, x19, lsl #3]
+    mov x1, #1
+    bl _write_u64_fd
+    
+    adrp x0, asm_label_suffix@PAGE
+    add x0, x0, asm_label_suffix@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+    
+    b Lemit_op_done
+
+Lemit_op_jump:
+    // unconditional jump to label in op_arg0
+    adrp x0, asm_branch@PAGE
+    add x0, x0, asm_branch@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+    
+    adrp x20, op_arg0@PAGE
+    add x20, x20, op_arg0@PAGEOFF
+    ldr x0, [x20, x19, lsl #3]
+    mov x1, #1
+    bl _write_u64_fd
+    
+    adrp x0, newline_char@PAGE
+    add x0, x0, newline_char@PAGEOFF
+    mov x1, #1
+    mov x2, #1
+    bl _write_buffer_fd
+    
+    b Lemit_op_done
+
+Lemit_op_cmp_imm:
+    // load left var into x11
+    adrp x0, asm_math_var_x11_ldr@PAGE
+    add x0, x0, asm_math_var_x11_ldr@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+    adrp x20, op_arg0@PAGE
+    add x20, x20, op_arg0@PAGEOFF
+    ldr x0, [x20, x19, lsl #3]
+    mov x1, #1
+    bl _write_stack_offset_fd
+    adrp x0, asm_close_bracket@PAGE
+    add x0, x0, asm_close_bracket@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+    
+    // load right imm from store_val
+    adrp x0, asm_store_val_adrp@PAGE
+    add x0, x0, asm_store_val_adrp@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+    mov x0, x19
+    mov x1, #1
+    bl _write_u64_fd
+    adrp x0, asm_store_val_ldr@PAGE
+    add x0, x0, asm_store_val_ldr@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+    mov x0, x19
+    mov x1, #1
+    bl _write_u64_fd
+    adrp x0, asm_store_var_suffix@PAGE
+    add x0, x0, asm_store_var_suffix@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+
+    b Lemit_cmp_shared
+
+Lemit_op_cmp_var:
+    // load left var into x11
+    adrp x0, asm_math_var_x11_ldr@PAGE
+    add x0, x0, asm_math_var_x11_ldr@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+    adrp x20, op_arg0@PAGE
+    add x20, x20, op_arg0@PAGEOFF
+    ldr x0, [x20, x19, lsl #3]
+    mov x1, #1
+    bl _write_stack_offset_fd
+    adrp x0, asm_close_bracket@PAGE
+    add x0, x0, asm_close_bracket@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+    
+    // load right var into x10
+    adrp x0, asm_math_var_x10_ldr@PAGE
+    add x0, x0, asm_math_var_x10_ldr@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+    adrp x20, op_arg1@PAGE
+    add x20, x20, op_arg1@PAGEOFF
+    ldr x0, [x20, x19, lsl #3]
+    mov x1, #1
+    bl _write_stack_offset_fd
+    adrp x0, asm_close_bracket@PAGE
+    add x0, x0, asm_close_bracket@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+
+Lemit_cmp_shared:
+    // emit `cmp x11, x10`
+    adrp x0, asm_cmp_x11_x10@PAGE
+    add x0, x0, asm_cmp_x11_x10@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+    
+    // emit cset depending on op_arg2
+    adrp x20, op_arg2@PAGE
+    add x20, x20, op_arg2@PAGEOFF
+    ldr x22, [x20, x19, lsl #3]
+    
+    cmp x22, #0
+    b.eq Lemit_cmp_eq
+    cmp x22, #1
+    b.eq Lemit_cmp_ne
+    cmp x22, #2
+    b.eq Lemit_cmp_gt
+    cmp x22, #3
+    b.eq Lemit_cmp_lt
+    cmp x22, #4
+    b.eq Lemit_cmp_ge
+    cmp x22, #5
+    b.eq Lemit_cmp_le
+    b Lemit_cmp_write_cset
+
+Lemit_cmp_eq:
+    adrp x0, asm_cset_eq@PAGE
+    add x0, x0, asm_cset_eq@PAGEOFF
+    b Lemit_cmp_write_cset
+Lemit_cmp_ne:
+    adrp x0, asm_cset_ne@PAGE
+    add x0, x0, asm_cset_ne@PAGEOFF
+    b Lemit_cmp_write_cset
+Lemit_cmp_gt:
+    adrp x0, asm_cset_gt@PAGE
+    add x0, x0, asm_cset_gt@PAGEOFF
+    b Lemit_cmp_write_cset
+Lemit_cmp_lt:
+    adrp x0, asm_cset_lt@PAGE
+    add x0, x0, asm_cset_lt@PAGEOFF
+    b Lemit_cmp_write_cset
+Lemit_cmp_ge:
+    adrp x0, asm_cset_ge@PAGE
+    add x0, x0, asm_cset_ge@PAGEOFF
+    b Lemit_cmp_write_cset
+Lemit_cmp_le:
+    adrp x0, asm_cset_le@PAGE
+    add x0, x0, asm_cset_le@PAGEOFF
+
+Lemit_cmp_write_cset:
+    mov x1, #1
+    bl _write_cstr_fd
+    
+    // emit `stur x11, [x29, #-dest]`
+    adrp x0, asm_math_store_x11_str@PAGE
+    add x0, x0, asm_math_store_x11_str@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+    
+    adrp x20, op_arg3@PAGE
+    add x20, x20, op_arg3@PAGEOFF
+    ldr x0, [x20, x19, lsl #3]
+    mov x1, #1
+    bl _write_stack_offset_fd
+    
+    adrp x0, asm_close_bracket@PAGE
+    add x0, x0, asm_close_bracket@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+    
+    b Lemit_op_done
+
+
     stp x29, x30, [sp, #-16]!
     mov x29, sp
     stp x19, x20, [sp, #-16]!
@@ -792,12 +1169,54 @@ _emit_store_data:
     b.eq Lemit_store_data_emit
     cmp x21, #3
     b.lt Lemit_store_data_done
+
+    // skip runtime branch/control ops — they don't need store_val data
+    // except op 39 (cmp_imm) which needs a store_val for the right-hand immediate
+    cmp x21, #39
+    b.eq Lemit_store_data_cmp_imm
+    cmp x21, #33
+    b.ge Lemit_store_data_check_high
+    b Lemit_store_data_check_math
+
+Lemit_store_data_check_high:
+    cmp x21, #41
+    b.le Lemit_store_data_done
+
+Lemit_store_data_check_math:
     cmp x21, #12
     b.le Lemit_store_data_emit
     cmp x21, #23
     b.lt Lemit_store_data_done
     cmp x21, #27
     b.gt Lemit_store_data_done
+
+Lemit_store_data_cmp_imm:
+    // emit store_val_{op_index}: .quad {op_arg1}  for the right-hand immediate
+    adrp x0, asm_align_3@PAGE
+    add x0, x0, asm_align_3@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+    adrp x0, asm_store_data_prefix@PAGE
+    add x0, x0, asm_store_data_prefix@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+    mov x0, x19
+    mov x1, #1
+    bl _write_u64_fd
+    adrp x0, asm_data_value_mid@PAGE
+    add x0, x0, asm_data_value_mid@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+    adrp x20, op_arg1@PAGE
+    add x20, x20, op_arg1@PAGEOFF
+    ldr x0, [x20, x19, lsl #3]
+    mov x1, #1
+    bl _write_u64_fd
+    adrp x0, asm_data_value_suffix@PAGE
+    add x0, x0, asm_data_value_suffix@PAGEOFF
+    mov x1, #1
+    bl _write_cstr_fd
+    b Lemit_store_data_done
 
 Lemit_store_data_emit:
     adrp x0, asm_align_3@PAGE
