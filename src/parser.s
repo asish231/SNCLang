@@ -231,6 +231,89 @@ _parse_statement:
     bl _write_newline_stderr
     b Lstmt_fail
 
+Lstmt_let:
+    bl _skip_whitespace
+    bl _parse_identifier
+    cbz x0, Lstmt_need_name
+    mov x19, x0
+    mov x20, x1
+
+    bl _skip_whitespace
+    mov w0, #'='
+    bl _expect_char
+    cbz x0, Lstmt_fail
+
+    bl _try_parse_input_call
+    cbnz x0, Lstmt_let_input
+
+    bl _parse_expr_value
+    cbz x0, Lstmt_fail
+    mov x21, x1
+    mov x22, x2
+    mov x23, x3
+    mov x24, x4
+
+    bl _consume_optional_semicolon
+
+    mov x0, x19
+    mov x1, x20
+    mov x2, x21
+    mov x3, #0
+    mov x4, x22
+    mov x5, x23
+    bl _define_variable
+    cbnz x0, Lstmt_fail
+
+    cmp x22, #2
+    b.eq Lstmt_let_done
+    cmp x22, #4
+    b.eq Lstmt_let_done
+    cmp x22, #5
+    b.eq Lstmt_let_done
+
+    mov x0, x19
+    mov x1, x20
+    bl _lookup_variable
+    cbz x0, Lstmt_fail
+    mov x0, x4
+    mov x1, x21
+    bl _record_store_variable
+    cbnz x0, Lstmt_fail
+
+Lstmt_let_done:
+    mov x0, #0
+    b Lstmt_return
+
+Lstmt_let_input:
+    mov x21, x1 // prompt ptr
+    mov x23, x2 // prompt len
+    bl _consume_optional_semicolon
+
+    mov x0, x19
+    mov x1, x20
+    mov x2, #0
+    mov x3, #0
+    mov x4, #2
+    mov x5, #0
+    bl _define_variable
+    cbnz x0, Lstmt_fail
+
+    mov x0, x19
+    mov x1, x20
+    bl _lookup_variable
+    cbz x0, Lstmt_fail
+
+    mov x0, #47
+    mov x1, x4
+    mov x2, x21
+    mov x3, x23
+    mov x4, #0
+    bl _record_operation4
+    cbnz x0, Lstmt_fail
+
+    mov x0, #0
+    b Lstmt_return
+
 Lstmt_int:
     bl _skip_whitespace
     bl _parse_identifier
@@ -411,6 +494,9 @@ Lstmt_str:
     bl _expect_char
     cbz x0, Lstmt_fail
 
+    bl _try_parse_input_call
+    cbnz x0, Lstmt_str_input
+
     bl _parse_expr_value
     cbz x0, Lstmt_fail
     cmp x2, #2
@@ -427,6 +513,37 @@ Lstmt_str:
     mov x4, #2 // type str
     mov x5, x22
     bl _define_variable
+    cbnz x0, Lstmt_fail
+
+    mov x0, #0
+    b Lstmt_return
+
+Lstmt_str_input:
+    mov x21, x1 // prompt ptr
+    mov x22, x2 // prompt len
+
+    bl _consume_optional_semicolon
+
+    mov x0, x19
+    mov x1, x20
+    mov x2, #0
+    mov x3, #0
+    mov x4, #2 // type str
+    mov x5, #0 // runtime input string length unknown at compile time
+    bl _define_variable
+    cbnz x0, Lstmt_fail
+
+    mov x0, x19
+    mov x1, x20
+    bl _lookup_variable
+    cbz x0, Lstmt_fail
+
+    mov x0, #47
+    mov x1, x4
+    mov x2, x21
+    mov x3, x22
+    mov x4, #0
+    bl _record_operation4
     cbnz x0, Lstmt_fail
 
     mov x0, #0
@@ -721,9 +838,13 @@ Lstmt_print_record:
     cmp x24, #-1
     b.eq Lstmt_print_immediate
     cmp x22, #2
-    b.eq Lstmt_print_immediate
+    b.ne Lstmt_print_check_decimal
+    cbnz x23, Lstmt_print_immediate
+    b Lstmt_print_variable
+Lstmt_print_check_decimal:
     cmp x22, #6
     b.eq Lstmt_print_immediate
+Lstmt_print_variable:
     mov x0, x24
     mov x1, x22
     bl _record_print_variable
@@ -880,6 +1001,8 @@ Lstmt_fn_call:
 
 Lstmt_assign_set:
     bl _advance_char
+    bl _try_parse_input_call
+    cbnz x0, Lstmt_assign_input
     bl _try_parse_runtime_var_bin_expr
     cbnz x0, Lstmt_assign_runtime_expr
     bl _parse_expr_value
@@ -890,6 +1013,37 @@ Lstmt_assign_set:
     mov x22, x2
     mov x24, x3
     b Lstmt_assign_store
+
+Lstmt_assign_input:
+    mov x21, x1 // prompt ptr
+    mov x24, x2 // prompt len
+    mov x0, x19
+    mov x1, x20
+    bl _lookup_variable
+    cbz x0, Lstmt_unknown_var_assign
+    cmp x2, #2
+    b.ne Lstmt_type_mismatch
+    mov x23, x4
+
+    mov x0, x19
+    mov x1, x20
+    mov x2, #0
+    mov x3, #2
+    mov x4, #0
+    bl _set_variable_full
+    cbnz x0, Lstmt_fail
+
+    bl _consume_optional_semicolon
+
+    mov x0, #47
+    mov x1, x23
+    mov x2, x21
+    mov x3, x24
+    mov x4, #0
+    bl _record_operation4
+    cbnz x0, Lstmt_fail
+    mov x0, #0
+    b Lstmt_return
 
 Lstmt_assign_runtime_expr:
     // record runtime form for target = lhs op rhs, while keeping compile-time state updated too
@@ -3674,6 +3828,64 @@ Lskip_block_fail:
     mov x0, #1
 
 Lskip_block_return:
+    ldp x19, x20, [sp], #16
+    ldp x29, x30, [sp], #16
+    ret
+
+_try_parse_input_call:
+    stp x29, x30, [sp, #-16]!
+    mov x29, sp
+    stp x19, x20, [sp, #-16]!
+    stp x21, x22, [sp, #-16]!
+    stp x23, x24, [sp, #-16]!
+
+    LOAD_ADDR x9, cursor_pos
+    ldr x19, [x9]
+    LOAD_ADDR x9, current_line
+    ldr x20, [x9]
+
+    bl _skip_whitespace
+    bl _parse_identifier
+    cbz x0, Ltry_input_restore
+    mov x21, x0
+    mov x22, x1
+
+    mov x0, x21
+    mov x1, x22
+    LOAD_ADDR x2, kw_input
+    bl _match_cstr_span
+    cbz x0, Ltry_input_restore
+
+    bl _skip_whitespace
+    mov w0, #'('
+    bl _expect_char
+    cbz x0, Ltry_input_restore
+
+    bl _parse_string_literal
+    cbz x0, Ltry_input_restore
+    mov x23, x1
+    mov x24, x2
+
+    bl _skip_whitespace
+    mov w0, #')'
+    bl _expect_char
+    cbz x0, Ltry_input_restore
+
+    mov x0, #1
+    mov x1, x23
+    mov x2, x24
+    b Ltry_input_return
+
+Ltry_input_restore:
+    LOAD_ADDR x9, cursor_pos
+    str x19, [x9]
+    LOAD_ADDR x9, current_line
+    str x20, [x9]
+    mov x0, #0
+
+Ltry_input_return:
+    ldp x23, x24, [sp], #16
+    ldp x21, x22, [sp], #16
     ldp x19, x20, [sp], #16
     ldp x29, x30, [sp], #16
     ret

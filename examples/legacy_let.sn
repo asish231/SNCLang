@@ -1,0 +1,13 @@
+// Legacy let syntax should infer the expression type.
+
+let answer = 42;
+print(answer);
+
+let ready = true;
+print(ready);
+
+let name = "SNlang";
+print(name);
+
+let price = 12.34;
+print(price);

@@ -131,6 +131,8 @@ _emit_operation:
     b.eq Lemit_op_logic_not
     cmp x21, #46
     b.eq Lemit_op_update_label
+    cmp x21, #47
+    b.eq Lemit_op_input_str
     cmp x21, #12
     b.le Lemit_op_print_math_imm
     cmp x21, #17
@@ -175,6 +177,11 @@ Lemit_op_store_var:
     b Lemit_op_done
 
 Lemit_op_print_var:
+    LOAD_ADDR x20, op_arg1
+    ldr x22, [x20, x19, lsl #3]
+    cmp x22, #2
+    b.eq Lemit_op_print_var_str
+
     LOAD_ADDR x0, asm_print_fmt_int_adrp
     mov x1, #1
     bl _write_cstr_fd
@@ -186,6 +193,150 @@ Lemit_op_print_var:
     mov x1, #1
     bl _write_stack_offset_fd
     LOAD_ADDR x0, asm_print_call_suffix_stack
+    mov x1, #1
+    bl _write_cstr_fd
+    b Lemit_op_done
+
+Lemit_op_print_var_str:
+    LOAD_ADDR x0, asm_print_fmt_str_adrp
+    mov x1, #1
+    bl _write_cstr_fd
+    LOAD_ADDR x0, asm_print_var_ldr
+    mov x1, #1
+    bl _write_cstr_fd
+    LOAD_ADDR x20, op_arg0
+    ldr x0, [x20, x19, lsl #3]
+    mov x1, #1
+    bl _write_stack_offset_fd
+    LOAD_ADDR x0, asm_print_call_suffix_stack
+    mov x1, #1
+    bl _write_cstr_fd
+    b Lemit_op_done
+
+Lemit_op_input_str:
+    LOAD_ADDR x0, asm_input_write_fd
+    mov x1, #1
+    bl _write_cstr_fd
+    LOAD_ADDR x0, asm_input_prompt_adr
+    mov x1, #1
+    bl _write_cstr_fd
+    mov x0, x19
+    mov x1, #1
+    bl _write_u64_fd
+    LOAD_ADDR x0, newline_char
+    mov x1, #1
+    mov x2, #1
+    bl _write_buffer_fd
+    LOAD_ADDR x0, asm_input_len_prefix
+    mov x1, #1
+    bl _write_cstr_fd
+    LOAD_ADDR x20, op_arg2
+    ldr x0, [x20, x19, lsl #3]
+    mov x1, #1
+    bl _write_u64_fd
+    LOAD_ADDR x0, newline_char
+    mov x1, #1
+    mov x2, #1
+    bl _write_buffer_fd
+    LOAD_ADDR x0, asm_call_write
+    mov x1, #1
+    bl _write_cstr_fd
+
+    LOAD_ADDR x0, asm_input_read_fd
+    mov x1, #1
+    bl _write_cstr_fd
+    LOAD_ADDR x0, asm_input_buffer_adr
+    mov x1, #1
+    bl _write_cstr_fd
+    mov x0, x19
+    mov x1, #1
+    bl _write_u64_fd
+    LOAD_ADDR x0, newline_char
+    mov x1, #1
+    mov x2, #1
+    bl _write_buffer_fd
+    LOAD_ADDR x0, asm_input_read_size
+    mov x1, #1
+    bl _write_cstr_fd
+    LOAD_ADDR x0, asm_call_read
+    mov x1, #1
+    bl _write_cstr_fd
+
+    LOAD_ADDR x0, asm_input_strip_prefix
+    mov x1, #1
+    bl _write_cstr_fd
+    mov x0, x19
+    mov x1, #1
+    bl _write_u64_fd
+    LOAD_ADDR x0, newline_char
+    mov x1, #1
+    mov x2, #1
+    bl _write_buffer_fd
+
+    LOAD_ADDR x0, asm_input_b_le_store
+    mov x1, #1
+    bl _write_cstr_fd
+    mov x0, x19
+    mov x1, #1
+    bl _write_u64_fd
+    LOAD_ADDR x0, newline_char
+    mov x1, #1
+    mov x2, #1
+    bl _write_buffer_fd
+
+    LOAD_ADDR x0, asm_input_b_ne_null
+    mov x1, #1
+    bl _write_cstr_fd
+    mov x0, x19
+    mov x1, #1
+    bl _write_u64_fd
+    LOAD_ADDR x0, newline_char
+    mov x1, #1
+    mov x2, #1
+    bl _write_buffer_fd
+
+    LOAD_ADDR x0, asm_input_b_store
+    mov x1, #1
+    bl _write_cstr_fd
+    mov x0, x19
+    mov x1, #1
+    bl _write_u64_fd
+    LOAD_ADDR x0, newline_char
+    mov x1, #1
+    mov x2, #1
+    bl _write_buffer_fd
+
+    LOAD_ADDR x0, asm_input_null_label_prefix
+    mov x1, #1
+    bl _write_cstr_fd
+    mov x0, x19
+    mov x1, #1
+    bl _write_u64_fd
+    LOAD_ADDR x0, asm_label_suffix
+    mov x1, #1
+    bl _write_cstr_fd
+    LOAD_ADDR x0, asm_input_null_body
+    mov x1, #1
+    bl _write_cstr_fd
+
+    LOAD_ADDR x0, asm_input_store_label_prefix
+    mov x1, #1
+    bl _write_cstr_fd
+    mov x0, x19
+    mov x1, #1
+    bl _write_u64_fd
+    LOAD_ADDR x0, asm_label_suffix
+    mov x1, #1
+    bl _write_cstr_fd
+
+    LOAD_ADDR x0, asm_input_store_x10_str
+    mov x1, #1
+    bl _write_cstr_fd
+    LOAD_ADDR x20, op_arg0
+    ldr x0, [x20, x19, lsl #3]
+    mov x1, #1
+    bl _write_stack_offset_fd
+    LOAD_ADDR x0, asm_close_bracket
     mov x1, #1
     bl _write_cstr_fd
     b Lemit_op_done
@@ -1125,6 +1276,8 @@ _emit_store_data:
     // except op 39 (cmp_imm) which needs a store_val for the right-hand immediate
     cmp x21, #39
     b.eq Lemit_store_data_cmp_imm
+    cmp x21, #47
+    b.eq Lemit_store_data_input
     cmp x21, #33
     b.ge Lemit_store_data_check_high
     b Lemit_store_data_check_math
@@ -1160,6 +1313,43 @@ Lemit_store_data_cmp_imm:
     mov x1, #1
     bl _write_u64_fd
     LOAD_ADDR x0, asm_data_value_suffix
+    mov x1, #1
+    bl _write_cstr_fd
+    b Lemit_store_data_done
+
+Lemit_store_data_input:
+    LOAD_ADDR x0, asm_align_3
+    mov x1, #1
+    bl _write_cstr_fd
+    LOAD_ADDR x0, asm_input_prompt_prefix
+    mov x1, #1
+    bl _write_cstr_fd
+    mov x0, x19
+    mov x1, #1
+    bl _write_u64_fd
+    LOAD_ADDR x0, asm_data_value_mid_str
+    mov x1, #1
+    bl _write_cstr_fd
+    LOAD_ADDR x20, op_arg1
+    ldr x0, [x20, x19, lsl #3]
+    LOAD_ADDR x20, op_arg2
+    ldr x1, [x20, x19, lsl #3]
+    mov x2, #1
+    bl _write_buffer_fd
+    LOAD_ADDR x0, asm_data_value_suffix_str
+    mov x1, #1
+    bl _write_cstr_fd
+
+    LOAD_ADDR x0, asm_align_3
+    mov x1, #1
+    bl _write_cstr_fd
+    LOAD_ADDR x0, asm_input_buffer_prefix
+    mov x1, #1
+    bl _write_cstr_fd
+    mov x0, x19
+    mov x1, #1
+    bl _write_u64_fd
+    LOAD_ADDR x0, asm_input_buffer_space
     mov x1, #1
     bl _write_cstr_fd
     b Lemit_store_data_done

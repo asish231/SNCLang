@@ -56,6 +56,7 @@
 .global kw_stop
 .global kw_skip
 .global kw_in
+.global kw_input
 .global kw_return
 .global asm_header
 .global asm_sub_sp_prefix
@@ -125,6 +126,25 @@
 .global asm_store_x11_var
 .global asm_add_x11_imm
 .global asm_sub_x11_imm
+.global asm_call_write
+.global asm_call_read
+.global asm_input_prompt_prefix
+.global asm_input_buffer_prefix
+.global asm_input_prompt_adr
+.global asm_input_buffer_adr
+.global asm_input_write_fd
+.global asm_input_read_fd
+.global asm_input_len_prefix
+.global asm_input_read_size
+.global asm_input_strip_prefix
+.global asm_input_b_le_store
+.global asm_input_b_ne_null
+.global asm_input_b_store
+.global asm_input_null_label_prefix
+.global asm_input_store_label_prefix
+.global asm_input_null_body
+.global asm_input_store_x10_str
+.global asm_input_buffer_space
 .global newline_char
 .global zero_qword
 .global single_char
@@ -231,14 +251,15 @@ kw_for:            .asciz "for"
 kw_stop:           .asciz "stop"
 kw_skip:           .asciz "skip"
 kw_in:             .asciz "in"
+kw_input:          .asciz "input"
 kw_return:         .asciz "return"
 asm_sub_sp_prefix:
     .asciz "    sub sp, sp, #"
 asm_header:
 #ifdef _WIN32
-    .asciz ".global main\n.align 4\n.extern printf\n\n.text\nmain:\n    stp x29, x30, [sp, #-16]!\n    mov x29, sp\n"
+    .asciz ".global main\n.align 4\n.extern printf\n.extern read\n.extern write\n\n.text\nmain:\n    stp x29, x30, [sp, #-16]!\n    mov x29, sp\n"
 #else
-    .asciz ".global _main\n.align 4\n.extern _printf\n\n.text\n_main:\n    stp x29, x30, [sp, #-16]!\n    mov x29, sp\n"
+    .asciz ".global _main\n.align 4\n.extern _printf\n.extern _read\n.extern _write\n\n.text\n_main:\n    stp x29, x30, [sp, #-16]!\n    mov x29, sp\n"
 #endif
 asm_print_fmt_int_adrp:
 #ifdef _WIN32
@@ -418,6 +439,52 @@ asm_add_x11_imm:
     .asciz "    add x11, x11, #"
 asm_sub_x11_imm:
     .asciz "    sub x11, x11, #"
+asm_call_write:
+#ifdef _WIN32
+    .asciz "    bl write\n"
+#else
+    .asciz "    bl _write\n"
+#endif
+asm_call_read:
+#ifdef _WIN32
+    .asciz "    bl read\n"
+#else
+    .asciz "    bl _read\n"
+#endif
+asm_input_prompt_prefix:
+    .asciz "input_prompt_"
+asm_input_buffer_prefix:
+    .asciz "input_buf_"
+asm_input_prompt_adr:
+    .asciz "    adr x1, input_prompt_"
+asm_input_buffer_adr:
+    .asciz "    adr x1, input_buf_"
+asm_input_write_fd:
+    .asciz "    mov x0, #1\n"
+asm_input_read_fd:
+    .asciz "    mov x0, #0\n"
+asm_input_len_prefix:
+    .asciz "    mov x2, #"
+asm_input_read_size:
+    .asciz "    mov x2, #255\n"
+asm_input_strip_prefix:
+    .asciz "    mov x9, x0\n    adr x10, input_buf_"
+asm_input_b_le_store:
+    .asciz "    cmp x9, #0\n    b.le L_input_store_"
+asm_input_b_ne_null:
+    .asciz "    sub x11, x9, #1\n    ldrb w12, [x10, x11]\n    cmp w12, #10\n    b.ne L_input_null_"
+asm_input_b_store:
+    .asciz "    strb wzr, [x10, x11]\n    b L_input_store_"
+asm_input_null_label_prefix:
+    .asciz "L_input_null_"
+asm_input_store_label_prefix:
+    .asciz "L_input_store_"
+asm_input_null_body:
+    .asciz "    add x11, x10, x9\n    strb wzr, [x11]\n"
+asm_input_store_x10_str:
+    .asciz "    stur x10, [x29, #-"
+asm_input_buffer_space:
+    .asciz ":\n    .space 256\n"
 newline_char:      .byte 10
 zero_qword:        .quad 0
 single_char:       .byte 0

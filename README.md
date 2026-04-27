@@ -33,6 +33,9 @@ boolean variables now have runtime slots in emitted programs for declarations,
 assignments, direct `print(var)` loads, and simple runtime arithmetic of the form
 `print(x + 2)` and `x = x + 3`.
 
+For a conservative status view of spec vs README vs current source support, see
+`FEATURE_MATRIX.md`.
+
 ## Syntax
 
 ```sn
@@ -74,6 +77,7 @@ Supported today:
 - `str` string variables
 - `const str`
 - string literals in `print(...)`
+- `input("prompt")` for `str` declarations/assignments (first-cut runtime path)
 - `use module.path` syntax
 - `match (...) { ... default { ... } }` with compile-time execution
 - runtime slots for `int` / `bool` declarations and assignments
