@@ -2034,32 +2034,38 @@ Lfor_unclosed:
     bl _report_error_prefix
     LOAD_ADDR x0, close_brace_char
     mov x1, #1
-    mov x2, #2
-    bl _write_buffer_fd
-    bl _write_newline_stderr
-    b Lfor_counted_fail
-
-Lfor_counted_return_propagate:
-    // Restore previous loop labels before propagating return
-    LOAD_ADDR x9, current_loop_start
-    str x27, [x9]
-    LOAD_ADDR x9, current_loop_end
-    str x28, [x9]
-    mov x0, #4
-    b Lfor_return
-
-Lfor_skip_block_done:
-    bl _skip_block_contents
-    cbnz x0, Lfor_fail
-    mov x0, #0
-    b Lfor_return
-
-Lfor_counted_fail:
+     mov x2, #2
+     bl _write_buffer_fd
+     bl _write_newline_stderr
+     b Lfor_counted_fail_stack
+ 
+ Lfor_counted_return_propagate_stack:
+     // Restore previous loop labels before propagating return
+     ldp x0, x1, [sp], #16
+     adrp x9, current_loop_start@PAGE
+     add x9, x9, current_loop_start@PAGEOFF
+     str x0, [x9]
+     adrp x9, current_loop_end@PAGE
+     add x9, x9, current_loop_end@PAGEOFF
+     str x1, [x9]
+     mov x0, #4
+     b Lfor_return
+ 
+ Lfor_skip_block_done:
+     bl _skip_block_contents
+     cbnz x0, Lfor_fail
+     mov x0, #0
+     b Lfor_return
+ 
+Lfor_counted_fail_stack:
     // Restore previous loop labels on counted-loop failure
-    LOAD_ADDR x9, current_loop_start
-    str x27, [x9]
-    LOAD_ADDR x9, current_loop_end
-    str x28, [x9]
+    ldp x0, x1, [sp], #16
+    adrp x9, current_loop_start@PAGE
+    add x9, x9, current_loop_start@PAGEOFF
+    str x0, [x9]
+    adrp x9, current_loop_end@PAGE
+    add x9, x9, current_loop_end@PAGEOFF
+    str x1, [x9]
     mov x0, #1
     b Lfor_return
 
