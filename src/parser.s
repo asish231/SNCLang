@@ -231,45 +231,6 @@ _parse_statement:
     bl _write_newline_stderr
     b Lstmt_fail
 
-Lstmt_let:
-    bl _skip_whitespace
-    bl _parse_identifier
-    cbz x0, Lstmt_need_name
-    mov x19, x0
-    mov x20, x1
-
-    bl _skip_whitespace
-    mov w0, #'='
-    bl _expect_char
-    cbz x0, Lstmt_fail
-
-    bl _parse_expr_value
-    cbz x0, Lstmt_fail
-    cmp x2, #0
-    b.ne Lstmt_type_mismatch
-    mov x21, x1
-
-    bl _consume_optional_semicolon
-
-    mov x0, x19
-    mov x1, x20
-    mov x2, x21
-    mov x3, #0
-    mov x4, #0
-    bl _define_variable
-    cbnz x0, Lstmt_fail
-    mov x0, x19
-    mov x1, x20
-    bl _lookup_variable
-    cbz x0, Lstmt_fail
-    mov x0, x4
-    mov x1, x21
-    bl _record_store_variable
-    cbnz x0, Lstmt_fail
-
-    mov x0, #0
-    b Lstmt_return
-
 Lstmt_int:
     bl _skip_whitespace
     bl _parse_identifier
@@ -1862,6 +1823,14 @@ Lfor_body_loop:
 Lfor_body_done:
     bl _advance_char
 
+    // Save cursor after body to restore it later
+    adrp x9, cursor_pos@PAGE
+    add x9, x9, cursor_pos@PAGEOFF
+    ldr x27, [x9]
+    adrp x9, current_line@PAGE
+    add x9, x9, current_line@PAGEOFF
+    ldr x28, [x9]
+
     // op 46: update label (target of `skip`)
     mov x0, #46
     mov x1, x23
@@ -1879,6 +1848,14 @@ Lfor_body_done:
 
     bl _parse_statement
     cbnz x0, Lfor_counted_fail
+
+    // Restore cursor to after the body so main parser continues correctly
+    adrp x9, cursor_pos@PAGE
+    add x9, x9, cursor_pos@PAGEOFF
+    str x27, [x9]
+    adrp x9, current_line@PAGE
+    add x9, x9, current_line@PAGEOFF
+    str x28, [x9]
 
     // op 38: branch back to start and place end label
     mov x0, #38

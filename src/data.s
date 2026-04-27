@@ -30,6 +30,7 @@
 .global msg_wrong_arg_count
 .global msg_expected_arrow
 .global kw_print
+.global kw_let
 .global kw_int
 .global kw_bool
 .global kw_const
@@ -204,6 +205,7 @@ msg_unknown_fn:    .asciz "error: unknown function on "
 msg_wrong_arg_count: .asciz "error: wrong number of arguments on "
 msg_expected_arrow: .asciz "error: expected -> on "
 kw_print:          .asciz "print"
+kw_let:            .asciz "let"
 kw_int:            .asciz "int"
 kw_bool:           .asciz "bool"
 kw_const:          .asciz "const"

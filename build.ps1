@@ -24,6 +24,12 @@ if ($Clean) {
     return
 }
 
+$clangCmd = Get-Command $Clang -ErrorAction SilentlyContinue
+if (-not $clangCmd) {
+    $targetHint = if ($Target) { " for target '$Target'" } else { "" }
+    throw "Could not find '$Clang' on PATH$targetHint. Install LLVM/Clang first, or pass -Clang with the full executable path."
+}
+
 New-Item -ItemType Directory -Force -Path $objDir | Out-Null
 
 $commonArgs = @("-x", "assembler-with-cpp")
