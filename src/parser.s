@@ -2037,9 +2037,9 @@ Lfor_unclosed:
      mov x2, #2
      bl _write_buffer_fd
      bl _write_newline_stderr
-     b Lfor_counted_fail_stack
+     b Lfor_counted_fail
  
- Lfor_counted_return_propagate_stack:
+ Lfor_counted_return_propagate:
      // Restore previous loop labels before propagating return
      ldp x0, x1, [sp], #16
      adrp x9, current_loop_start@PAGE
@@ -2057,7 +2057,7 @@ Lfor_unclosed:
      mov x0, #0
      b Lfor_return
  
-Lfor_counted_fail_stack:
+Lfor_counted_fail:
     // Restore previous loop labels on counted-loop failure
     ldp x0, x1, [sp], #16
     adrp x9, current_loop_start@PAGE

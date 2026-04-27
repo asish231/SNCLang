@@ -223,10 +223,15 @@ Lemit_op_input_str:
     mov x0, x19
     mov x1, #1
     bl _write_u64_fd
-    LOAD_ADDR x0, newline_char
+    LOAD_ADDR x0, asm_input_prompt_pageoff
     mov x1, #1
-    mov x2, #1
-    bl _write_buffer_fd
+    bl _write_cstr_fd
+    mov x0, x19
+    mov x1, #1
+    bl _write_u64_fd
+    LOAD_ADDR x0, asm_pageoff_suffix
+    mov x1, #1
+    bl _write_cstr_fd
     LOAD_ADDR x0, asm_input_len_prefix
     mov x1, #1
     bl _write_cstr_fd
@@ -251,10 +256,15 @@ Lemit_op_input_str:
     mov x0, x19
     mov x1, #1
     bl _write_u64_fd
-    LOAD_ADDR x0, newline_char
+    LOAD_ADDR x0, asm_input_buffer_pageoff
     mov x1, #1
-    mov x2, #1
-    bl _write_buffer_fd
+    bl _write_cstr_fd
+    mov x0, x19
+    mov x1, #1
+    bl _write_u64_fd
+    LOAD_ADDR x0, asm_pageoff_suffix
+    mov x1, #1
+    bl _write_cstr_fd
     LOAD_ADDR x0, asm_input_read_size
     mov x1, #1
     bl _write_cstr_fd
@@ -268,10 +278,15 @@ Lemit_op_input_str:
     mov x0, x19
     mov x1, #1
     bl _write_u64_fd
-    LOAD_ADDR x0, newline_char
+    LOAD_ADDR x0, asm_input_strip_pageoff
     mov x1, #1
-    mov x2, #1
-    bl _write_buffer_fd
+    bl _write_cstr_fd
+    mov x0, x19
+    mov x1, #1
+    bl _write_u64_fd
+    LOAD_ADDR x0, asm_pageoff_suffix
+    mov x1, #1
+    bl _write_cstr_fd
 
     LOAD_ADDR x0, asm_input_b_le_store
     mov x1, #1

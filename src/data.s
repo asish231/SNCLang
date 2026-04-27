@@ -111,6 +111,7 @@
 .global asm_store_data_prefix
 .global asm_label_prefix
 .global asm_label_suffix
+.global asm_pageoff_suffix
 .global asm_branch
 .global asm_branch_zero
 .global asm_branch_nonzero
@@ -131,12 +132,15 @@
 .global asm_input_prompt_prefix
 .global asm_input_buffer_prefix
 .global asm_input_prompt_adr
+.global asm_input_prompt_pageoff
 .global asm_input_buffer_adr
+.global asm_input_buffer_pageoff
 .global asm_input_write_fd
 .global asm_input_read_fd
 .global asm_input_len_prefix
 .global asm_input_read_size
 .global asm_input_strip_prefix
+.global asm_input_strip_pageoff
 .global asm_input_b_le_store
 .global asm_input_b_ne_null
 .global asm_input_b_store
@@ -409,6 +413,8 @@ asm_label_prefix:
     .asciz "L_snl_"
 asm_label_suffix:
     .asciz ":\n"
+asm_pageoff_suffix:
+    .asciz "@PAGEOFF\n"
 asm_branch:
     .asciz "    b L_snl_"
 asm_branch_zero:
@@ -456,9 +462,13 @@ asm_input_prompt_prefix:
 asm_input_buffer_prefix:
     .asciz "input_buf_"
 asm_input_prompt_adr:
-    .asciz "    adr x1, input_prompt_"
+    .asciz "    adrp x1, input_prompt_"
+asm_input_prompt_pageoff:
+    .asciz "@PAGE\n    add x1, x1, input_prompt_"
 asm_input_buffer_adr:
-    .asciz "    adr x1, input_buf_"
+    .asciz "    adrp x1, input_buf_"
+asm_input_buffer_pageoff:
+    .asciz "@PAGE\n    add x1, x1, input_buf_"
 asm_input_write_fd:
     .asciz "    mov x0, #1\n"
 asm_input_read_fd:
@@ -468,7 +478,9 @@ asm_input_len_prefix:
 asm_input_read_size:
     .asciz "    mov x2, #255\n"
 asm_input_strip_prefix:
-    .asciz "    mov x9, x0\n    adr x10, input_buf_"
+    .asciz "    mov x9, x0\n    adrp x10, input_buf_"
+asm_input_strip_pageoff:
+    .asciz "@PAGE\n    add x10, x10, input_buf_"
 asm_input_b_le_store:
     .asciz "    cmp x9, #0\n    b.le L_input_store_"
 asm_input_b_ne_null:
