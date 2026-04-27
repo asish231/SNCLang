@@ -1,30 +1,32 @@
-dec(2) price = 99.50
-print(price)
-
-dec(2) tax = 10.25
-print(price + tax)
-print(price - tax)
-print(price * tax)
-print(price / tax)
-
-if (price > tax) {
-    print(price)
-}
-
-dec(2) total = cast(42, dec(2))
-print(total)
-print(cast(total, int))
-print(cast(total, dec(3)))
-
 fn addTax(dec(2) amount) -> dec(2) {
     dec(2) fee = 1.50
     return amount + fee
 }
 
-print(addTax(10.00))
+fn main() {
+    dec(2) price = 99.50
+    print(price)
 
-dec(2) count = 1.20
-while (count < 3.20) {
-    print(count)
-    count += 1.00
+    dec(2) tax = 10.25
+    print(price + tax)
+    print(price - tax)
+    print(price * tax)
+    print(price / tax)
+
+    if (price > tax) {
+        print(price)
+    }
+
+    dec(2) total = cast(42, dec(2))
+    print(total)
+    print(cast(total, int))
+    print(cast(total, dec(3)))
+
+    print(addTax(10.00))
+
+    dec(2) count = 1.20
+    while (count < 3.20) {
+        print(count)
+        count += 1.00
+    }
 }

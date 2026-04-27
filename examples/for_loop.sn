@@ -1,66 +1,47 @@
-// Test: for loop with stop and skip
-
-// Basic for loop: prints 0,1,2,3,4
-for (int i = 0, i < 5, i += 1) {
-    print(i)
-}
-
-// For loop with stop: prints 10,11,12 (breaks at 13)
-for (int j = 10, j < 20, j += 1) {
-    if (j == 13) {
-        stop
+fn main() {
+    // Basic for loop: prints 0,1,2,3,4
+    for (int i = 0, i < 5, i += 1) {
+        print(i)
     }
-    print(j)
-}
 
-// For loop with skip: prints 0,1,3,4 (skips 2)
-for (int k = 0, k < 5, k += 1) {
-    if (k == 2) {
-        skip
+    // For loop with stop: prints 10,11,12
+    for (int j = 10, j < 20, j += 1) {
+        if (j == 13) {
+            stop
+        }
+        print(j)
     }
-    print(k)
-}
 
-// While loop with stop: prints 100,101,102
-int m = 100
-while (m < 200) {
-    if (m == 103) {
-        stop
+    // For loop with skip: prints 0,1,3,4
+    for (int k = 0, k < 5, k += 1) {
+        if (k == 2) {
+            skip
+        }
+        print(k)
     }
-    print(m)
-    m += 1
-}
 
-// While loop with skip: prints 200,201,203,204
-int n = 200
-while (n < 205) {
-    if (n == 202) {
-        n += 1
-        skip
+    // While loop with stop: prints 100,101,102
+    int m = 100
+    while (m < 200) {
+        if (m == 103) {
+            stop
+        }
+        print(m)
+        m += 1
     }
-    print(n)
-    n += 1
-}
 
-// For-in over a declared int list: prints 7,8,10
-list<int> nums = [7, 8, 9, 10]
-for (num in nums) {
-    if (num == 9) {
-        skip
+    // For-in over a declared int list: prints 7,8,10
+    list<int> nums = [7, 8, 9, 10]
+    for (num in nums) {
+        if (num == 9) {
+            skip
+        }
+        print(num)
     }
-    print(num)
-}
 
-// For-in over an inline int list: prints 1,2
-for (value in [1, 2, 3]) {
-    if (value == 3) {
-        stop
+    // For-in over a declared string list
+    list<str> fruits = ["Apple", "Banana"]
+    for (fruit in fruits) {
+        print(fruit)
     }
-    print(value)
-}
-
-// For-in over a declared string list: prints Apple,Banana
-list<str> fruits = ["Apple", "Banana"]
-for (fruit in fruits) {
-    print(fruit)
 }

@@ -197,20 +197,22 @@ _read_into_buffer:
     add x21, x21, buffer@PAGEOFF
 
 Lread_loop:
-    mov x22, #8191
-    sub x22, x22, x20
-    cbz x22, Lbuffer_full
+     mov x22, #65535
+     sub x22, x22, x20
+     cbz x22, Lbuffer_full
 
-    mov x0, x19
-    add x1, x21, x20
-    mov x2, x22
-    bl _read
-    cmp x0, #0
-    b.lt Lread_failed
-    cbz x0, Lread_done
+     mov x0, x19
+     add x1, x21, x20
+     mov x2, x22
+     bl _read
+     cbz x0, Lread_done
+     b.lt Lread_failed
+     // Cap read at buffer limit (65535 content + 1 null terminator = 65536)
+     cmp x0, x22
+     b.gt Lbuffer_full
 
-    add x20, x20, x0
-    b Lread_loop
+     add x20, x20, x0
+     b Lread_loop
 
 Lbuffer_full:
     adrp x0, msg_truncated@PAGE

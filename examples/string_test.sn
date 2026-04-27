@@ -1,3 +1,0 @@
-str name = "Antigravity"
-print name
-print "Hello, world"
