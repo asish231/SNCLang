@@ -1373,21 +1373,6 @@ Lemit_store_data_emit:
     mov x1, #1
     bl _write_cstr_fd
 
-    // --- DEBUG PRINT x21 ---
-    stp x0, x1, [sp, #-16]!
-    stp x2, x3, [sp, #-16]!
-    mov x0, x21
-    mov x1, #2
-    bl _write_u64_fd
-    adrp x0, newline_char@PAGE
-    add x0, x0, newline_char@PAGEOFF
-    mov x1, #1
-    mov x2, #2
-    bl _write_buffer_fd
-    ldp x2, x3, [sp], #16
-    ldp x0, x1, [sp], #16
-    // --- END DEBUG PRINT ---
-
     cmp x21, #23
     b.lt Lemit_store_data_arg1
     adrp x20, op_arg2@PAGE

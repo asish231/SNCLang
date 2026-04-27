@@ -122,13 +122,6 @@ _parse_statement:
 
     mov x0, x19
     mov x1, x20
-    adrp x2, kw_let@PAGE
-    add x2, x2, kw_let@PAGEOFF
-    bl _match_cstr_span
-    cbnz x0, Lstmt_let
-
-    mov x0, x19
-    mov x1, x20
     adrp x2, kw_print@PAGE
     add x2, x2, kw_print@PAGEOFF
     bl _match_cstr_span
@@ -257,45 +250,6 @@ _parse_statement:
     bl _write_buffer_fd
     bl _write_newline_stderr
     b Lstmt_fail
-
-Lstmt_let:
-    bl _skip_whitespace
-    bl _parse_identifier
-    cbz x0, Lstmt_need_name
-    mov x19, x0
-    mov x20, x1
-
-    bl _skip_whitespace
-    mov w0, #'='
-    bl _expect_char
-    cbz x0, Lstmt_fail
-
-    bl _parse_expr_value
-    cbz x0, Lstmt_fail
-    cmp x2, #0
-    b.ne Lstmt_type_mismatch
-    mov x21, x1
-
-    bl _consume_optional_semicolon
-
-    mov x0, x19
-    mov x1, x20
-    mov x2, x21
-    mov x3, #0
-    mov x4, #0
-    bl _define_variable
-    cbnz x0, Lstmt_fail
-    mov x0, x19
-    mov x1, x20
-    bl _lookup_variable
-    cbz x0, Lstmt_fail
-    mov x0, x4
-    mov x1, x21
-    bl _record_store_variable
-    cbnz x0, Lstmt_fail
-
-    mov x0, #0
-    b Lstmt_return
 
 Lstmt_int:
     bl _skip_whitespace
