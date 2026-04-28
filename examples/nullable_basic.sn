@@ -1,0 +1,14 @@
+fn main() {
+    str? nickname = none
+    nickname = "Ace"
+
+    int? lucky = none
+    lucky = 7
+    print(lucky)
+
+    list<int>? nums = none
+    nums = [1, 2, 3]
+    for (item in nums) {
+        print(item)
+    }
+}

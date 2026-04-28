@@ -59,6 +59,8 @@
 .global kw_in
 .global kw_input
 .global kw_return
+.global kw_none
+.global kw_otherwise
 .global asm_header
 .global asm_sub_sp_prefix
 .global asm_close_bracket
@@ -275,6 +277,8 @@ kw_skip:           .asciz "skip"
 kw_in:             .asciz "in"
 kw_input:          .asciz "input"
 kw_return:         .asciz "return"
+kw_none:           .asciz "none"
+kw_otherwise:      .asciz "otherwise"
 asm_sub_sp_prefix:
     .asciz "    sub sp, sp, #"
 asm_header:

@@ -1,0 +1,6 @@
+fn main() {
+    str? nickname = none
+    nickname = "Ace"
+    int? lucky = none
+    lucky = 7
+}

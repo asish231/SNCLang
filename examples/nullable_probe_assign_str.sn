@@ -1,0 +1,4 @@
+fn main() {
+    str? nickname = none
+    nickname = "Ace"
+}

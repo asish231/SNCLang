@@ -1,0 +1,6 @@
+fn show(str? value) {
+}
+
+fn main() {
+    show(none)
+}

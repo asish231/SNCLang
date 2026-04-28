@@ -76,6 +76,21 @@ test: $(SNC) | $(TMPDIR)
 	./$(SNC) examples/functions.sn > $(TMPDIR)/snc_functions.s
 	$(CC) $(TMPDIR)/snc_functions.s -o $(TMPDIR)/snc_functions$(EXEEXT)
 	./$(TMPDIR)/snc_functions$(EXEEXT)
+	./$(SNC) examples/list_exprs.sn > $(TMPDIR)/snc_list_exprs.s
+	$(CC) $(TMPDIR)/snc_list_exprs.s -o $(TMPDIR)/snc_list_exprs$(EXEEXT)
+	./$(TMPDIR)/snc_list_exprs$(EXEEXT)
+	./$(SNC) examples/list_functions.sn > $(TMPDIR)/snc_list_functions.s
+	$(CC) $(TMPDIR)/snc_list_functions.s -o $(TMPDIR)/snc_list_functions$(EXEEXT)
+	./$(TMPDIR)/snc_list_functions$(EXEEXT)
+	./$(SNC) examples/nullable_basic.sn > $(TMPDIR)/snc_nullable_basic.s
+	$(CC) $(TMPDIR)/snc_nullable_basic.s -o $(TMPDIR)/snc_nullable_basic$(EXEEXT)
+	./$(TMPDIR)/snc_nullable_basic$(EXEEXT)
+	./$(SNC) examples/nullable_functions.sn > $(TMPDIR)/snc_nullable_functions.s
+	$(CC) $(TMPDIR)/snc_nullable_functions.s -o $(TMPDIR)/snc_nullable_functions$(EXEEXT)
+	./$(TMPDIR)/snc_nullable_functions$(EXEEXT)
+	./$(SNC) examples/otherwise.sn > $(TMPDIR)/snc_otherwise.s
+	$(CC) $(TMPDIR)/snc_otherwise.s -o $(TMPDIR)/snc_otherwise$(EXEEXT)
+	./$(TMPDIR)/snc_otherwise$(EXEEXT)
 	./$(SNC) examples/decimals.sn > $(TMPDIR)/snc_decimals.s
 	$(CC) $(TMPDIR)/snc_decimals.s -o $(TMPDIR)/snc_decimals$(EXEEXT)
 	./$(TMPDIR)/snc_decimals$(EXEEXT)

@@ -1,0 +1,11 @@
+fn echoNums(list<int> values) -> list<int> {
+    return values
+}
+
+fn main() {
+    let nums = echoNums([1, 2, 3])
+
+    for (item in nums) {
+        print(item)
+    }
+}

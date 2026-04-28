@@ -1,0 +1,16 @@
+fn show(str? value) {
+    value = "shown"
+}
+
+fn choose(bool useNone) -> str? {
+    if (useNone) {
+        return none
+    }
+    return "ok"
+}
+
+fn main() {
+    show(none)
+    str? result = choose(false)
+    result = choose(true)
+}

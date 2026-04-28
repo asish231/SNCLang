@@ -1,0 +1,6 @@
+fn choose(bool useNone) -> str? {
+    return none
+}
+
+fn main() {
+}

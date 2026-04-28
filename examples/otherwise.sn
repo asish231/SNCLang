@@ -1,0 +1,9 @@
+fn main() {
+    str? nickname = none
+    str shown = nickname otherwise "No nickname"
+    print(shown)
+
+    nickname = "Ace"
+    shown = nickname otherwise "No nickname"
+    print(shown)
+}

@@ -319,6 +319,13 @@ Lstmt_let_input:
 
 Lstmt_int:
     bl _skip_whitespace
+    mov x23, #0
+    bl _peek_char
+    cmp w0, #'?'
+    b.ne Lstmt_int_name
+    bl _advance_char
+    mov x23, #16
+Lstmt_int_name:
     bl _parse_identifier
     cbz x0, Lstmt_need_name
     mov x19, x0
@@ -332,7 +339,14 @@ Lstmt_int:
     bl _parse_expr_value
     cbz x0, Lstmt_fail
     cmp x2, #0
+    b.eq Lstmt_int_value_ok
+    cmp x23, #16
     b.ne Lstmt_type_mismatch
+    cmp x2, #16
+    b.eq Lstmt_int_value_ok
+    cmp x2, #7
+    b.ne Lstmt_type_mismatch
+Lstmt_int_value_ok:
     mov x21, x1
 
     bl _consume_optional_semicolon
@@ -341,9 +355,10 @@ Lstmt_int:
     mov x1, x20
     mov x2, x21
     mov x3, #0
-    mov x4, #0
+    mov x4, x23
     bl _define_variable
     cbnz x0, Lstmt_fail
+    cbnz x23, Lstmt_int_done
     mov x0, x19
     mov x1, x20
     bl _lookup_variable
@@ -356,8 +371,19 @@ Lstmt_int:
     mov x0, #0
     b Lstmt_return
 
+Lstmt_int_done:
+    mov x0, #0
+    b Lstmt_return
+
 Lstmt_bool:
     bl _skip_whitespace
+    mov x23, #1
+    bl _peek_char
+    cmp w0, #'?'
+    b.ne Lstmt_bool_name
+    bl _advance_char
+    mov x23, #17
+Lstmt_bool_name:
     bl _parse_identifier
     cbz x0, Lstmt_need_name
     mov x19, x0
@@ -371,7 +397,14 @@ Lstmt_bool:
     bl _parse_expr_value
     cbz x0, Lstmt_fail
     cmp x2, #1
+    b.eq Lstmt_bool_value_ok
+    cmp x23, #17
     b.ne Lstmt_type_mismatch
+    cmp x2, #17
+    b.eq Lstmt_bool_value_ok
+    cmp x2, #7
+    b.ne Lstmt_type_mismatch
+Lstmt_bool_value_ok:
     mov x21, x1
 
     bl _consume_optional_semicolon
@@ -380,10 +413,12 @@ Lstmt_bool:
     mov x1, x20
     mov x2, x21
     mov x3, #0
-    mov x4, #1
+    mov x4, x23
     mov x5, #0
     bl _define_variable
     cbnz x0, Lstmt_fail
+    cmp x23, #17
+    b.eq Lstmt_bool_done
     mov x0, x19
     mov x1, x20
     bl _lookup_variable
@@ -396,8 +431,19 @@ Lstmt_bool:
     mov x0, #0
     b Lstmt_return
 
+Lstmt_bool_done:
+    mov x0, #0
+    b Lstmt_return
+
 Lstmt_byte:
     bl _skip_whitespace
+    mov x23, #3
+    bl _peek_char
+    cmp w0, #'?'
+    b.ne Lstmt_byte_name
+    bl _advance_char
+    mov x23, #19
+Lstmt_byte_name:
     bl _parse_identifier
     cbz x0, Lstmt_need_name
     mov x19, x0
@@ -413,6 +459,12 @@ Lstmt_byte:
     cmp x2, #0
     b.eq Lstmt_byte_type_ok
     cmp x2, #3
+    b.eq Lstmt_byte_type_ok
+    cmp x23, #19
+    b.ne Lstmt_type_mismatch
+    cmp x2, #19
+    b.eq Lstmt_byte_type_ok
+    cmp x2, #7
     b.ne Lstmt_type_mismatch
 Lstmt_byte_type_ok:
     mov x21, x1
@@ -423,10 +475,12 @@ Lstmt_byte_type_ok:
     mov x1, x20
     mov x2, x21
     mov x3, #0
-    mov x4, #3 // type byte
+    mov x4, x23 // type byte/byte?
     mov x5, #0
     bl _define_variable
     cbnz x0, Lstmt_fail
+    cmp x23, #19
+    b.eq Lstmt_byte_done
     mov x0, x19
     mov x1, x20
     bl _lookup_variable
@@ -439,10 +493,22 @@ Lstmt_byte_type_ok:
     mov x0, #0
     b Lstmt_return
 
+Lstmt_byte_done:
+    mov x0, #0
+    b Lstmt_return
+
 Lstmt_dec:
     bl _parse_decimal_type_suffix
     cbz x0, Lstmt_fail
     mov x23, x1 // scale
+    mov x24, #6
+    bl _skip_whitespace
+    bl _peek_char
+    cmp w0, #'?'
+    b.ne Lstmt_dec_name
+    bl _advance_char
+    mov x24, #22
+Lstmt_dec_name:
 
     bl _skip_whitespace
     bl _parse_identifier
@@ -458,9 +524,23 @@ Lstmt_dec:
     bl _parse_expr_value
     cbz x0, Lstmt_fail
     cmp x2, #6
+    b.eq Lstmt_dec_check_scale
+    cmp x24, #22
     b.ne Lstmt_type_mismatch
+    cmp x2, #7
+    b.ne Lstmt_type_mismatch
+    b Lstmt_dec_value_ok
+Lstmt_dec_check_scale:
     cmp x3, x23
     b.ne Lstmt_decimal_scale_error
+    cmp x24, #22
+    b.ne Lstmt_dec_value_ok
+    cmp x2, #22
+    b.eq Lstmt_dec_value_ok
+    cmp x2, #6
+    b.eq Lstmt_dec_value_ok
+    b Lstmt_type_mismatch
+Lstmt_dec_value_ok:
     mov x21, x1
 
     bl _consume_optional_semicolon
@@ -469,10 +549,12 @@ Lstmt_dec:
     mov x1, x20
     mov x2, x21
     mov x3, #0
-    mov x4, #6 // type dec
+    mov x4, x24 // type dec/dec?
     mov x5, x23 // scale
     bl _define_variable
     cbnz x0, Lstmt_fail
+    cmp x24, #22
+    b.eq Lstmt_dec_done
     mov x0, x19
     mov x1, x20
     bl _lookup_variable
@@ -485,8 +567,19 @@ Lstmt_dec:
     mov x0, #0
     b Lstmt_return
 
+Lstmt_dec_done:
+    mov x0, #0
+    b Lstmt_return
+
 Lstmt_str:
     bl _skip_whitespace
+    mov x23, #2
+    bl _peek_char
+    cmp w0, #'?'
+    b.ne Lstmt_str_name
+    bl _advance_char
+    mov x23, #18
+Lstmt_str_name:
     bl _parse_identifier
     cbz x0, Lstmt_need_name
     mov x19, x0
@@ -503,7 +596,14 @@ Lstmt_str:
     bl _parse_expr_value
     cbz x0, Lstmt_fail
     cmp x2, #2
+    b.eq Lstmt_str_value_ok
+    cmp x23, #18
     b.ne Lstmt_fail
+    cmp x2, #18
+    b.eq Lstmt_str_value_ok
+    cmp x2, #7
+    b.ne Lstmt_fail
+Lstmt_str_value_ok:
     mov x21, x1 // ptr
     mov x22, x3 // len
 
@@ -513,7 +613,7 @@ Lstmt_str:
     mov x1, x20
     mov x2, x21
     mov x3, #0
-    mov x4, #2 // type str
+    mov x4, x23 // type str/str?
     mov x5, x22
     bl _define_variable
     cbnz x0, Lstmt_fail
@@ -531,7 +631,7 @@ Lstmt_str_input:
     mov x1, x20
     mov x2, #0
     mov x3, #0
-    mov x4, #2 // type str
+    mov x4, x23 // type str/str?
     mov x5, #0 // runtime input string length unknown at compile time
     bl _define_variable
     cbnz x0, Lstmt_fail
@@ -594,6 +694,13 @@ Lstmt_list_type_done:
     mov w0, #'>'
     bl _expect_char
     cbz x0, Lstmt_fail
+    bl _skip_whitespace
+    bl _peek_char
+    cmp w0, #'?'
+    b.ne Lstmt_list_name
+    bl _advance_char
+    add x24, x24, #16
+Lstmt_list_name:
 
     bl _skip_whitespace
     bl _parse_identifier
@@ -606,11 +713,21 @@ Lstmt_list_type_done:
     bl _expect_char
     cbz x0, Lstmt_fail
 
-    mov x0, x23
-    bl _parse_list_literal_value
+    bl _parse_expr_value
     cbz x0, Lstmt_fail
     mov x21, x1
     mov x22, x2
+    mov x25, x3
+    cmp x22, x24
+    b.eq Lstmt_list_value_ok
+    cmp x24, #20
+    b.eq Lstmt_list_check_none
+    cmp x24, #21
+    b.ne Lstmt_type_mismatch
+Lstmt_list_check_none:
+    cmp x22, #7
+    b.ne Lstmt_type_mismatch
+Lstmt_list_value_ok:
 
     bl _consume_optional_semicolon
 
@@ -619,7 +736,7 @@ Lstmt_list_type_done:
     mov x2, x21
     mov x3, #0
     mov x4, x24
-    mov x5, x22
+    mov x5, x25
     bl _define_variable
     cbnz x0, Lstmt_fail
 
@@ -1066,8 +1183,6 @@ Lstmt_assign_set:
     cbnz x0, Lstmt_assign_runtime_expr
     bl _parse_expr_value
     cbz x0, Lstmt_fail
-    cmp x2, #6
-    b.eq Lstmt_type_mismatch
     mov x21, x1
     mov x22, x2
     mov x24, x3
@@ -1444,8 +1559,16 @@ Lstmt_assign_store:
     cbz x0, Lstmt_fail
     mov x23, x2
     mov x26, x3
+    cmp x23, #16
+    b.ge Lstmt_assign_check_nullable_target
     cmp x23, #6
     b.eq Lstmt_assign_check_decimal_target
+    cmp x23, #2
+    b.eq Lstmt_assign_do_store_full
+    cmp x23, #4
+    b.eq Lstmt_assign_do_store_full
+    cmp x23, #5
+    b.eq Lstmt_assign_do_store_full
     cmp x23, #3
     b.eq Lstmt_assign_check_byte_target
     cmp x22, x23
@@ -1464,10 +1587,34 @@ Lstmt_assign_check_decimal_target:
     b.ne Lstmt_type_mismatch
     cmp x24, x26
     b.ne Lstmt_decimal_scale_error
+    b Lstmt_assign_do_store
+
+Lstmt_assign_check_nullable_target:
+    cmp x22, #7
+    b.eq Lstmt_assign_do_store_full
+    cmp x22, x23
+    b.eq Lstmt_assign_do_store_full
+    sub x9, x23, #16
+    cmp x9, #6
+    b.eq Lstmt_assign_check_nullable_decimal
+    cmp x22, x9
+    b.ne Lstmt_type_mismatch
+    b Lstmt_assign_do_store_full
+
+Lstmt_assign_check_nullable_decimal:
+    cmp x22, #6
+    b.ne Lstmt_type_mismatch
+    cmp x24, x26
+    b.ne Lstmt_decimal_scale_error
+    b Lstmt_assign_do_store_full
 
 Lstmt_assign_do_store:
     mov x0, x19
     mov x1, x20
+    cmp x22, #4
+    b.eq Lstmt_assign_do_store_full
+    cmp x22, #5
+    b.eq Lstmt_assign_do_store_full
     mov x2, x25
     bl _set_variable
     cbnz x0, Lstmt_fail
@@ -1486,6 +1633,37 @@ Lstmt_assign_do_store:
 Lstmt_assign_store_done:
     mov x0, #0
     b Lstmt_return
+
+Lstmt_assign_do_store_full:
+    mov x0, x19
+    mov x1, x20
+    mov x2, x25
+    mov x3, x23
+    mov x4, x24
+    bl _set_variable_full
+    cbnz x0, Lstmt_fail
+    mov x9, x23
+    cmp x9, #16
+    b.lt Lstmt_assign_do_store_full_base_ready
+    sub x9, x9, #16
+Lstmt_assign_do_store_full_base_ready:
+    cmp x9, #2
+    b.eq Lstmt_assign_store_done
+    cmp x9, #4
+    b.eq Lstmt_assign_store_done
+    cmp x9, #5
+    b.eq Lstmt_assign_store_done
+    cmp x9, #6
+    b.eq Lstmt_assign_store_done
+    mov x0, x19
+    mov x1, x20
+    bl _lookup_variable
+    cbz x0, Lstmt_fail
+    mov x0, x4
+    mov x1, x25
+    bl _record_store_variable
+    cbnz x0, Lstmt_fail
+    b Lstmt_assign_store_done
 
 Lstmt_unknown_var_assign:
     LOAD_ADDR x0, msg_unknown_var
@@ -2599,6 +2777,10 @@ _parse_for_iterable_value:
     b.eq Lfor_iterable_list_int
     cmp x2, #5
     b.eq Lfor_iterable_list_str
+    cmp x2, #20
+    b.eq Lfor_iterable_nullable_list_int
+    cmp x2, #21
+    b.eq Lfor_iterable_nullable_list_str
     b Lfor_iterable_fail
 
 Lfor_iterable_list_int:
@@ -2609,6 +2791,24 @@ Lfor_iterable_list_int:
     b Lfor_iterable_return
 
 Lfor_iterable_list_str:
+    mov x0, #1
+    mov x1, x23
+    mov x2, x24
+    mov x3, #2
+    b Lfor_iterable_return
+
+Lfor_iterable_nullable_list_int:
+    cmp x23, #-1
+    b.eq Lfor_iterable_fail
+    mov x0, #1
+    mov x1, x23
+    mov x2, x24
+    mov x3, #0
+    b Lfor_iterable_return
+
+Lfor_iterable_nullable_list_str:
+    cmp x23, #-1
+    b.eq Lfor_iterable_fail
     mov x0, #1
     mov x1, x23
     mov x2, x24
@@ -3012,6 +3212,30 @@ Lexpr_loop:
     cmp w0, #'-'
     b.eq Lexpr_subtract
 
+Lexpr_maybe_otherwise:
+    bl _skip_whitespace
+    LOAD_ADDR x0, kw_otherwise
+    bl _consume_keyword
+    cbz x0, Lexpr_done
+    bl _parse_expr_value
+    cbz x0, Lexpr_fail
+    cmp x20, #7
+    b.eq Lexpr_otherwise_use_rhs
+    cmp x20, #16
+    b.lt Lexpr_loop
+    cmp x19, #-1
+    b.eq Lexpr_otherwise_use_rhs
+    sub x20, x20, #16
+    b Lexpr_loop
+
+Lexpr_otherwise_use_rhs:
+    mov x19, x1
+    mov x20, x2
+    mov x21, x3
+    mov x24, x4
+    b Lexpr_loop
+
+Lexpr_done:
     mov x0, #1
     mov x1, x19
     mov x2, x20
@@ -3553,6 +3777,9 @@ _parse_primary_value:
     cmp w0, #'('
     b.eq Lprimary_group
 
+    cmp w0, #'['
+    b.eq Lprimary_list
+
     cmp w0, #'"'
     b.eq Lprimary_string
 
@@ -3583,11 +3810,38 @@ Lprimary_group:
     mov x4, x24
     b Lprimary_return
 
+Lprimary_list:
+    mov x0, #-1
+    bl _parse_list_literal_value
+    cbz x0, Lprimary_fail
+    mov x19, x1
+    mov x21, x2
+    mov x20, x3
+    cmp x20, #0
+    b.eq Lprimary_list_int
+    mov x20, #5
+    b Lprimary_list_done
+Lprimary_list_int:
+    mov x20, #4
+Lprimary_list_done:
+    mov x0, #1
+    mov x1, x19
+    mov x2, x20
+    mov x3, x21
+    mov x4, #-1
+    b Lprimary_return
+
 Lprimary_identifier:
     bl _parse_identifier
     cbz x0, Lprimary_missing
     mov x19, x0
     mov x20, x1
+
+    mov x0, x19
+    mov x1, x20
+    LOAD_ADDR x2, kw_none
+    bl _match_cstr_span
+    cbnz x0, Lprimary_none
 
     mov x0, x19
     mov x1, x20
@@ -3635,13 +3889,28 @@ Lprimary_try_fn_call:
     mov x2, x20
     cmp x20, #2
     b.eq Lprimary_fn_call_load_len
+    cmp x20, #18
+    b.eq Lprimary_fn_call_load_len
     cmp x20, #6
+    b.eq Lprimary_fn_call_load_len
+    cmp x20, #22
+    b.eq Lprimary_fn_call_load_len
+    cmp x20, #4
+    b.eq Lprimary_fn_call_load_len
+    cmp x20, #20
+    b.eq Lprimary_fn_call_load_len
+    cmp x20, #5
+    b.eq Lprimary_fn_call_load_len
+    cmp x20, #21
     b.ne Lprimary_fn_call_non_str
 Lprimary_fn_call_load_len:
     LOAD_ADDR x9, fn_return_length
     ldr x3, [x9]
     cmp x20, #6
+    b.eq Lprimary_fn_call_dec_len
+    cmp x20, #22
     b.ne Lprimary_fn_call_done
+Lprimary_fn_call_dec_len:
     mov x3, x21
     b Lprimary_fn_call_done
 Lprimary_fn_call_non_str:
@@ -3662,6 +3931,14 @@ Lprimary_false:
     mov x0, #1
     mov x1, #0
     mov x2, #1 // bool
+    mov x3, #0
+    mov x4, #-1
+    b Lprimary_return
+
+Lprimary_none:
+    mov x0, #1
+    mov x1, #-1
+    mov x2, #7
     mov x3, #0
     mov x4, #-1
     b Lprimary_return
@@ -3788,6 +4065,12 @@ _parse_type_spec:
     bl _match_cstr_span
     cbnz x0, Lparse_type_dec
 
+    mov x0, x19
+    mov x1, x20
+    LOAD_ADDR x2, kw_list
+    bl _match_cstr_span
+    cbnz x0, Lparse_type_list
+
 Lparse_type_fail:
     mov x0, #0
     ldp x19, x20, [sp], #16
@@ -3820,8 +4103,56 @@ Lparse_type_dec:
     mov x2, x1
     mov x1, #6
     mov x0, #1
+    b Lparse_type_return
+
+Lparse_type_list:
+    bl _skip_whitespace
+    mov w0, #'<'
+    bl _expect_char
+    cbz x0, Lparse_type_fail
+    bl _skip_whitespace
+    bl _parse_identifier
+    cbz x0, Lparse_type_fail
+    mov x19, x0
+    mov x20, x1
+
+    mov x0, x19
+    mov x1, x20
+    LOAD_ADDR x2, kw_int
+    bl _match_cstr_span
+    cbnz x0, Lparse_type_list_int
+
+    mov x0, x19
+    mov x1, x20
+    LOAD_ADDR x2, kw_str
+    bl _match_cstr_span
+    cbnz x0, Lparse_type_list_str
+    b Lparse_type_fail
+
+Lparse_type_list_int:
+    mov x19, #4
+    b Lparse_type_list_done
+
+Lparse_type_list_str:
+    mov x19, #5
+
+Lparse_type_list_done:
+    bl _skip_whitespace
+    mov w0, #'>'
+    bl _expect_char
+    cbz x0, Lparse_type_fail
+    mov x0, #1
+    mov x1, x19
+    mov x2, #0
 
 Lparse_type_return:
+    bl _skip_whitespace
+    bl _peek_char
+    cmp w0, #'?'
+    b.ne Lparse_type_return_done
+    bl _advance_char
+    add x1, x1, #16
+Lparse_type_return_done:
     ldp x19, x20, [sp], #16
     ldp x29, x30, [sp], #16
     ret
@@ -4737,11 +5068,28 @@ Lfn_call_parse_arg:
     mov x7, x3   // arg length
     str x4, [sp, #8] // arg source slot id, -1 means immediate/non-slot value
 
+    cmp x27, #16
+    b.ge Lfn_call_check_nullable_arg
     cmp x6, x27
     b.eq Lfn_call_define_arg
     cmp x27, #3
     b.ne Lfn_call_fail
     cmp x6, #0
+    b.ne Lfn_call_fail
+    b Lfn_call_define_arg
+
+Lfn_call_check_nullable_arg:
+    cmp x6, #7
+    b.eq Lfn_call_define_arg
+    cmp x6, x27
+    b.eq Lfn_call_define_arg
+    sub x9, x27, #16
+    cmp x9, #3
+    b.ne Lfn_call_check_nullable_exact
+    cmp x6, #0
+    b.eq Lfn_call_define_arg
+Lfn_call_check_nullable_exact:
+    cmp x6, x9
     b.ne Lfn_call_fail
 
 Lfn_call_define_arg:
