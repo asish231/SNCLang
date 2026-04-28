@@ -845,11 +845,19 @@ Lstmt_print_record:
     b Lstmt_print_variable
 Lstmt_print_check_decimal:
     cmp x22, #6
-    b.eq Lstmt_print_immediate
+    b.eq Lstmt_print_decimal_variable
 Lstmt_print_variable:
     mov x0, x24
     mov x1, x22
     bl _record_print_variable
+    b Lstmt_print_done
+
+Lstmt_print_decimal_variable:
+    mov x0, #56
+    mov x1, x24
+    mov x2, x23
+    mov x3, #0
+    bl _record_operation3
     b Lstmt_print_done
 
 Lstmt_print_immediate:
@@ -1344,12 +1352,12 @@ Lstmt_assign_compound_record_fail:
     b Lstmt_fail
 
 Lstmt_assign_compound_decimal:
-    // For now, keep decimal math as compile-time only
     // lhs_type=x23=6, rhs_type=x2, rhs_val=x1, lhs_val=x25, lhs_scale=x26, rhs_scale=x3, op=x21
     cmp x2, #6
     b.ne Lstmt_type_mismatch
     cmp x3, x26
     b.ne Lstmt_decimal_scale_error
+    mov x28, x1
     
     // Dispatch op
     cmp x21, #1
@@ -1367,12 +1375,12 @@ Lstmt_assign_dec_add:
     add x21, x25, x1
     mov x22, #6
     mov x24, x26
-    b Lstmt_assign_store
+    b Lstmt_assign_dec_record
 Lstmt_assign_dec_sub:
     sub x21, x25, x1
     mov x22, #6
     mov x24, x26
-    b Lstmt_assign_store
+    b Lstmt_assign_dec_record
 Lstmt_assign_dec_mul:
     mul x21, x25, x1
     mov x0, x26
@@ -1380,7 +1388,7 @@ Lstmt_assign_dec_mul:
     udiv x21, x21, x0
     mov x22, #6
     mov x24, x26
-    b Lstmt_assign_store
+    b Lstmt_assign_dec_record
 Lstmt_assign_dec_div:
     cbz x1, Lstmt_assign_divide_zero
     mov x0, x26
@@ -1389,6 +1397,30 @@ Lstmt_assign_dec_div:
     sdiv x21, x21, x1
     mov x22, #6
     mov x24, x26
+    b Lstmt_assign_dec_record
+
+Lstmt_assign_dec_record:
+    sub sp, sp, #16
+    str x21, [sp]
+    cmn x27, #1
+    b.eq Lstmt_assign_dec_record_imm
+    add x0, x22, #46
+    mov x1, x19
+    mov x2, x26
+    mov x3, x27
+    bl _record_operation3
+    b Lstmt_assign_dec_record_done
+Lstmt_assign_dec_record_imm:
+    add x0, x22, #42
+    mov x1, x19
+    mov x2, x26
+    mov x3, #0
+    mov x4, x28
+    bl _record_operation4
+Lstmt_assign_dec_record_done:
+    cbnz x0, Lstmt_assign_compound_record_fail
+    ldr x21, [sp]
+    add sp, sp, #16
     b Lstmt_assign_store
 
 Lstmt_assign_divide_zero:
@@ -1730,9 +1762,10 @@ Lif_after_then:
     cbz x0, Lif_no_else
 
     bl _skip_whitespace
-    mov w0, #'{'
-    bl _expect_char
-    cbz x0, Lif_skip_else_if
+    bl _peek_char
+    cmp w0, #'{'
+    b.ne Lif_skip_else_if
+    bl _advance_char
 
     bl _skip_block_contents
     cbnz x0, Lif_fail
@@ -1753,9 +1786,10 @@ Lif_exec_else_path:
     cbz x0, Lif_no_else
 
     bl _skip_whitespace
-    mov w0, #'{'
-    bl _expect_char
-    cbz x0, Lif_check_else_if
+    bl _peek_char
+    cmp w0, #'{'
+    b.ne Lif_check_else_if
+    bl _advance_char
 
 Lif_else_loop:
     bl _skip_whitespace
