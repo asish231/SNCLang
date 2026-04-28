@@ -1,0 +1,5 @@
+fn echo(str s) -> str {
+    return s
+}
+
+print(echo("hi"))

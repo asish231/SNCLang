@@ -1,0 +1,8 @@
+fn main() {
+    for (int j = 10, j < 20, j += 1) {
+        if (j == 13) {
+            stop
+        }
+        print(j)
+    }
+}

@@ -1,0 +1,6 @@
+fn answer() -> int {
+    return 42
+}
+
+int x = answer()
+print(x)

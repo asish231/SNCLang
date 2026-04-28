@@ -15,9 +15,6 @@ _main:
     adrp x9, store_val_1@PAGE
     ldr x10, [x9, store_val_1@PAGEOFF]
     stur x10, [x29, #-16]
-    adrp x9, store_val_2@PAGE
-    ldr x10, [x9, store_val_2@PAGEOFF]
-    stur x10, [x29, #-24]
     ldur x11, [x29, #-8]
     ldur x10, [x29, #-16]
     add x11, x11, x10
@@ -25,10 +22,7 @@ _main:
     adrp x0, print_fmt_int@PAGE
     add x0, x0, print_fmt_int@PAGEOFF
     ldur x1, [x29, #-24]
-    sub sp, sp, #16
-    str x1, [sp]
     bl _printf
-    add sp, sp, #16
     ldur x11, [x29, #-8]
     ldur x10, [x29, #-16]
     mul x11, x11, x10
@@ -36,22 +30,13 @@ _main:
     adrp x0, print_fmt_int@PAGE
     add x0, x0, print_fmt_int@PAGEOFF
     ldur x1, [x29, #-24]
-    sub sp, sp, #16
-    str x1, [sp]
     bl _printf
-    add sp, sp, #16
     ldur x11, [x29, #-8]
-    adrp x9, store_val_7@PAGE
-    ldr x10, [x9, store_val_7@PAGEOFF]
-    add x11, x11, x10
     stur x11, [x29, #-24]
     adrp x0, print_fmt_int@PAGE
     add x0, x0, print_fmt_int@PAGEOFF
     ldur x1, [x29, #-24]
-    sub sp, sp, #16
-    str x1, [sp]
     bl _printf
-    add sp, sp, #16
     mov w0, #0
     mov sp, x29
     ldp x29, x30, [sp], #16

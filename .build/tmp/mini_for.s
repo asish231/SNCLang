@@ -55,4 +55,4 @@ store_val_2:
     .quad 3
 .align 3
 store_val_6:
-    .quad 0
+    .quad 1

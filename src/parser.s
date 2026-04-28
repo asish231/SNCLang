@@ -1167,8 +1167,9 @@ Lstmt_assign_runtime_expr_record_imm:
     add x0, x22, #22
     mov x1, x27
     mov x2, x21
-    mov x3, x23
-    bl _record_operation3
+    mov x3, #0
+    mov x4, x23
+    bl _record_operation4
 Lstmt_assign_runtime_record_done:
     cbnz x0, Lstmt_assign_runtime_record_fail
     ldr x28, [sp]
@@ -1270,22 +1271,77 @@ Lstmt_assign_compound_shared:
     b.eq Lstmt_assign_compound_decimal
     cmp x2, #6
     b.eq Lstmt_type_mismatch
+    mov x27, x4 // rhs slot id (-1 when immediate)
+    mov x24, x1 // rhs immediate value, or placeholder until rhs var load
+    cmn x27, #1
+    b.eq Lstmt_assign_compound_rhs_ready
+    LOAD_ADDR x9, var_values
+    ldr x24, [x9, x27, lsl #3]
+Lstmt_assign_compound_rhs_ready:
+    cmp x21, #1
+    b.eq Lstmt_assign_compound_eval_add
+    cmp x21, #2
+    b.eq Lstmt_assign_compound_eval_sub
+    cmp x21, #3
+    b.eq Lstmt_assign_compound_eval_mul
+    cmp x21, #4
+    b.eq Lstmt_assign_compound_eval_div
+    cmp x21, #5
+    b.eq Lstmt_assign_compound_eval_mod
+    b Lstmt_fail
 
-    // Setup for Lstmt_assign_runtime_expr.
-    // _parse_expr_value returns rhs slot id in x4 (-1 means immediate).
-    // Runtime path expects rhs kind in x4 (0 immediate, 1 variable).
-    mov x3, x1 // rhs value (immediate) or rhs var index
-    // Convert parser slot marker to runtime rhs-kind flag.
-    // Parser returns x4 = -1 for immediate, otherwise variable index.
-    mov x9, x4
-    add x9, x9, #1
-    mov x4, #1
-    cbnz x9, Lstmt_assign_compound_rhs_kind_ready
-    mov x4, #0
-Lstmt_assign_compound_rhs_kind_ready:
-    mov x2, x21 // op type
-    mov x1, x22 // lhs_idx
-    b Lstmt_assign_runtime_expr
+Lstmt_assign_compound_eval_add:
+    add x28, x25, x24
+    b Lstmt_assign_compound_record
+Lstmt_assign_compound_eval_sub:
+    sub x28, x25, x24
+    b Lstmt_assign_compound_record
+Lstmt_assign_compound_eval_mul:
+    mul x28, x25, x24
+    b Lstmt_assign_compound_record
+Lstmt_assign_compound_eval_div:
+    cbz x24, Lstmt_assign_divide_zero
+    udiv x28, x25, x24
+    b Lstmt_assign_compound_record
+Lstmt_assign_compound_eval_mod:
+    cbz x24, Lstmt_assign_divide_zero
+    udiv x9, x25, x24
+    msub x28, x9, x24, x25
+
+Lstmt_assign_compound_record:
+    sub sp, sp, #16
+    str x28, [sp]
+    cmn x27, #1
+    b.eq Lstmt_assign_compound_record_imm
+    add x0, x21, #27
+    mov x1, x22
+    mov x2, x22
+    mov x3, x27
+    bl _record_operation3
+    b Lstmt_assign_compound_record_done
+Lstmt_assign_compound_record_imm:
+    add x0, x21, #22
+    mov x1, x22
+    mov x2, x22
+    mov x3, #0
+    mov x4, x24
+    bl _record_operation4
+Lstmt_assign_compound_record_done:
+    cbnz x0, Lstmt_assign_compound_record_fail
+    ldr x28, [sp]
+    add sp, sp, #16
+    mov x0, x19
+    mov x1, x20
+    mov x2, x28
+    bl _set_variable
+    cbnz x0, Lstmt_fail
+    bl _consume_optional_semicolon
+    mov x0, #0
+    b Lstmt_return
+
+Lstmt_assign_compound_record_fail:
+    add sp, sp, #16
+    b Lstmt_fail
 
 Lstmt_assign_compound_decimal:
     // For now, keep decimal math as compile-time only
@@ -1568,6 +1624,7 @@ _parse_if_statement_after_keyword:
     stp x19, x20, [sp, #-16]!
     stp x21, x22, [sp, #-16]!
     stp x23, x24, [sp, #-16]!
+    mov x24, #0 // whether op34 (else label placement) was emitted
 
     bl _skip_whitespace
     mov w0, #'('
@@ -1601,6 +1658,12 @@ _parse_if_statement_after_keyword:
     mov x3, #0
     mov x4, #0
     bl _record_operation4
+    LOAD_ADDR x9, fn_exec_depth
+    ldr x23, [x9]
+    cbz x23, Lif_body_loop
+    LOAD_ADDR x9, var_values
+    ldr x23, [x9, x19, lsl #3] // compile-time condition value
+    cbz x23, Lif_skip_then_body
 
 Lif_body_loop:
     bl _skip_whitespace
@@ -1619,10 +1682,33 @@ Lif_body_loop:
     b Lif_fail
 
 Lif_return_propagate:
+    cbnz x24, Lif_return_emit_end_only
+    // Return happened in the then-body before else/end labels were emitted.
+    mov x0, #34
+    mov x1, x20
+    mov x2, x21
+    mov x3, #0
+    mov x4, #0
+    bl _record_operation4
+    mov x24, #1
+Lif_return_emit_end_only:
+    mov x0, #35
+    mov x1, x21
+    mov x2, #0
+    mov x3, #0
+    mov x4, #0
+    bl _record_operation4
     b Lif_return
+
+Lif_skip_then_body:
+    bl _skip_block_contents
+    cbnz x0, Lif_fail
+    b Lif_after_then
 
 Lif_body_done:
     bl _advance_char
+
+Lif_after_then:
 
     // emit op 34 (if else label)
     mov x0, #34
@@ -1631,8 +1717,36 @@ Lif_body_done:
     mov x3, #0
     mov x4, #0
     bl _record_operation4
+    mov x24, #1
 
     // check for else
+    LOAD_ADDR x9, fn_exec_depth
+    ldr x9, [x9]
+    cbz x9, Lif_exec_else_path
+    cbz x23, Lif_exec_else_path
+    bl _skip_whitespace
+    LOAD_ADDR x0, kw_else
+    bl _consume_keyword
+    cbz x0, Lif_no_else
+
+    bl _skip_whitespace
+    mov w0, #'{'
+    bl _expect_char
+    cbz x0, Lif_skip_else_if
+
+    bl _skip_block_contents
+    cbnz x0, Lif_fail
+    b Lif_no_else
+
+Lif_skip_else_if:
+    LOAD_ADDR x0, kw_if
+    bl _consume_keyword
+    cbz x0, Lif_fail
+    bl _skip_if_statement_after_keyword
+    cbnz x0, Lif_fail
+    b Lif_no_else
+
+Lif_exec_else_path:
     bl _skip_whitespace
     LOAD_ADDR x0, kw_else
     bl _consume_keyword
@@ -3003,6 +3117,7 @@ _parse_condition_atom:
     stp x19, x20, [sp, #-16]!
     stp x21, x22, [sp, #-16]!
     stp x23, x24, [sp, #-16]!
+    stp x25, x26, [sp, #-16]!
 
     bl _parse_expr_value
     cbz x0, Lcond_atom_fail
@@ -3077,6 +3192,60 @@ Lcond_emit_op:
     bl _allocate_temp_var
     mov x24, x0 // dest temp var id
 
+    // Compute the compile-time truth value for function execution paths.
+    mov x25, x20
+    cmn x19, #1
+    b.eq Lcond_left_ready
+    LOAD_ADDR x9, var_values
+    ldr x25, [x9, x19, lsl #3]
+Lcond_left_ready:
+    mov x26, x23
+    cmn x22, #1
+    b.eq Lcond_right_ready
+    LOAD_ADDR x9, var_values
+    ldr x26, [x9, x22, lsl #3]
+Lcond_right_ready:
+    cmp x21, #0
+    b.eq Lcond_eval_eq
+    cmp x21, #1
+    b.eq Lcond_eval_ne
+    cmp x21, #2
+    b.eq Lcond_eval_gt
+    cmp x21, #3
+    b.eq Lcond_eval_lt
+    cmp x21, #4
+    b.eq Lcond_eval_ge
+    cmp x21, #5
+    b.eq Lcond_eval_le
+    mov x26, #0
+    b Lcond_store_eval
+Lcond_eval_eq:
+    cmp x25, x26
+    cset x26, eq
+    b Lcond_store_eval
+Lcond_eval_ne:
+    cmp x25, x26
+    cset x26, ne
+    b Lcond_store_eval
+Lcond_eval_gt:
+    cmp x25, x26
+    cset x26, gt
+    b Lcond_store_eval
+Lcond_eval_lt:
+    cmp x25, x26
+    cset x26, lt
+    b Lcond_store_eval
+Lcond_eval_ge:
+    cmp x25, x26
+    cset x26, ge
+    b Lcond_store_eval
+Lcond_eval_le:
+    cmp x25, x26
+    cset x26, le
+Lcond_store_eval:
+    LOAD_ADDR x9, var_values
+    str x26, [x9, x24, lsl #3]
+
     cmn x22, #1 // right var slot == -1 means immediate
     b.eq Lcond_emit_imm
     
@@ -3108,6 +3277,7 @@ Lcond_atom_fail:
     mov x1, #0
 
 Lcond_atom_return:
+    ldp x25, x26, [sp], #16
     ldp x23, x24, [sp], #16
     ldp x21, x22, [sp], #16
     ldp x19, x20, [sp], #16
@@ -4525,6 +4695,7 @@ Lfn_call_parse_arg:
     mov x28, x1  // arg value
     mov x6, x2   // arg type
     mov x7, x3   // arg length
+    str x4, [sp, #8] // arg source slot id, -1 means immediate/non-slot value
 
     cmp x6, x27
     b.eq Lfn_call_define_arg
@@ -4554,7 +4725,9 @@ Lfn_call_define_arg_len_ok:
     ldr x0, [x9]
     sub x1, x0, #1 // target var index (the one we just defined)
     
-    cbz x4, Lfn_call_emit_imm
+    ldr x9, [sp, #8]
+    cmn x9, #1
+    b.eq Lfn_call_emit_imm
     // emit op 45 (store_var_var)
     mov x0, #45
     mov x2, x28 // source var_id
@@ -4603,6 +4776,11 @@ Lfn_call_args_done:
     LOAD_ADDR x9, current_line
     str x28, [x9]
 
+    LOAD_ADDR x9, fn_exec_depth
+    ldr x10, [x9]
+    add x10, x10, #1
+    str x10, [x9]
+
     // Execute function body
 Lfn_call_body_loop:
     // Check return flag
@@ -4641,6 +4819,11 @@ Lfn_call_skip_nested:
 
 Lfn_call_body_done:
     bl _advance_char // consume '}'
+
+    LOAD_ADDR x9, fn_exec_depth
+    ldr x10, [x9]
+    sub x10, x10, #1
+    str x10, [x9]
 
     // Restore cursor to call site
     LOAD_ADDR x9, cursor_pos
@@ -4682,6 +4865,12 @@ Lfn_call_wrong_args:
     b Lfn_call_fail
 
 Lfn_call_fail:
+    LOAD_ADDR x9, fn_exec_depth
+    ldr x10, [x9]
+    cbz x10, Lfn_call_fail_restore_vars
+    sub x10, x10, #1
+    str x10, [x9]
+Lfn_call_fail_restore_vars:
     // Restore var count on failure too
     LOAD_ADDR x9, var_count
     str x22, [x9]

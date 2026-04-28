@@ -1,0 +1,5 @@
+fn greet() {
+    print(42)
+}
+
+greet()

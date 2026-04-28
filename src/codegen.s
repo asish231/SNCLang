@@ -1354,7 +1354,17 @@ Lemit_store_data_cmp_imm:
     LOAD_ADDR x0, asm_data_value_mid
     mov x1, #1
     bl _write_cstr_fd
+    cmp x21, #39
+    b.eq Lemit_store_data_cmp_imm_arg1
+    cmp x21, #23
+    b.lt Lemit_store_data_cmp_imm_arg1
+    cmp x21, #27
+    b.gt Lemit_store_data_cmp_imm_arg1
+    LOAD_ADDR x20, op_arg3
+    b Lemit_store_data_cmp_imm_load
+Lemit_store_data_cmp_imm_arg1:
     LOAD_ADDR x20, op_arg1
+Lemit_store_data_cmp_imm_load:
     ldr x0, [x20, x19, lsl #3]
     mov x1, #1
     bl _write_u64_fd
@@ -1414,14 +1424,19 @@ Lemit_store_data_emit:
     mov x1, #1
     bl _write_cstr_fd
 
-    cmp x21, #22
+    cmp x21, #39
+    b.eq Lemit_store_data_arg1
+    cmp x21, #23
     b.lt Lemit_store_data_arg1
-    LOAD_ADDR x20, op_arg2
+    cmp x21, #27
+    b.gt Lemit_store_data_arg1
+    LOAD_ADDR x20, op_arg3
     b Lemit_store_data_load
 Lemit_store_data_arg1:
     LOAD_ADDR x20, op_arg1
 Lemit_store_data_load:
     ldr x0, [x20, x19, lsl #3]
+Lemit_store_data_write:
     mov x1, #1
     bl _write_u64_fd
     LOAD_ADDR x0, asm_data_value_suffix

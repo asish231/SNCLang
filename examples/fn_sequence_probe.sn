@@ -1,0 +1,30 @@
+print(later_add(20, 22))
+
+fn greet() {
+    print(42)
+}
+
+fn double(int x) -> int {
+    return x * 2
+}
+
+fn add(int a, int b) -> int {
+    return a + b
+}
+
+fn abs_diff(int x, int y) -> int {
+    if (x > y) {
+        return x - y
+    }
+    return y - x
+}
+
+fn later_add(int a, int b) -> int {
+    return a + b
+}
+
+greet()
+print(double(5))
+print(add(3, 7))
+print(abs_diff(10, 3))
+print(abs_diff(3, 10))

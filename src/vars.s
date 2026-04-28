@@ -80,8 +80,9 @@ Ldefine_store:
     LOAD_ADDR x24, max_var_count
     ldr x25, [x24]
     cmp x23, x25
-    b.le Ldefine_return
+    b.le Ldefine_success
     str x23, [x24]
+Ldefine_success:
     mov x0, #0
     b Ldefine_return
 
@@ -329,7 +330,6 @@ _record_print_value:
     mov x19, x0 // value
     mov x21, x1 // type
     mov x22, x2 // length
-    mov x23, x2 // length
     LOAD_ADDR x20, print_count
     ldr x9, [x20]
     cmp x9, #2048

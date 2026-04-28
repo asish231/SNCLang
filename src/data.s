@@ -199,6 +199,7 @@
 .global fn_return_value
 .global fn_return_length
 .global fn_return_flag
+.global fn_exec_depth
 .global var_scope_base
 .global max_var_count
 .global saved_var_count
@@ -555,6 +556,7 @@ fn_return_decl_lengths: .space 512
 fn_return_value: .space 8
 fn_return_length: .space 8
 fn_return_flag:  .space 8
+fn_exec_depth:   .space 8
 var_scope_base: .space 8
 max_var_count:  .space 8
 saved_var_count: .space 8

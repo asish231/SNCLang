@@ -1,0 +1,5 @@
+fn say(str s) {
+    print(s)
+}
+
+say("hello")

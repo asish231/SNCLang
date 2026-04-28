@@ -64,10 +64,10 @@ store_val_0:
     .quad 10
 .align 3
 store_val_1:
-    .quad 0
+    .quad 5
 .align 3
 store_val_3:
-    .quad 0
+    .quad 3
 .align 3
 store_val_5:
-    .quad 0
+    .quad 4
