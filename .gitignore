@@ -1,3 +1,4 @@
+.build/
 snc
 *.o
 .DS_Store
