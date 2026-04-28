@@ -457,67 +457,88 @@ Lfile_write_return:
     ldp x29, x30, [sp], #16
     ret
 
-.global _str_concat
-_str_concat:
+.global _str_concat_len
+_str_concat_len:
     stp x29, x30, [sp, #-16]!
     mov x29, sp
     stp x19, x20, [sp, #-16]!
     stp x21, x22, [sp, #-16]!
     stp x23, x24, [sp, #-16]!
+    stp x25, x26, [sp, #-16]!
 
     mov x19, x0 // s1
-    mov x20, x1 // s2
-
-    // Get length of s1
-    mov x0, x19
-    bl _cstring_length
-    mov x21, x0
-
-    // Get length of s2
-    mov x0, x20
-    bl _cstring_length
-    mov x22, x0
+    mov x20, x1 // len1
+    mov x21, x2 // s2
+    mov x22, x3 // len2
 
     // Allocate len1 + len2 + 1
-    add x0, x21, x22
+    add x0, x20, x22
     add x0, x0, #1
     bl _malloc
-    cbz x0, Lstr_concat_fail
+    cbz x0, Lstr_concat_len_fail
     mov x23, x0 // result ptr
 
     // Copy s1
     mov x24, #0
-Lstr_concat_copy1:
-    cmp x24, x21
-    b.ge Lstr_concat_copy2_start
+Lstr_concat_len_copy1:
+    cmp x24, x20
+    b.ge Lstr_concat_len_copy2_start
     ldrb w9, [x19, x24]
     strb w9, [x23, x24]
     add x24, x24, #1
-    b Lstr_concat_copy1
+    b Lstr_concat_len_copy1
 
-Lstr_concat_copy2_start:
+Lstr_concat_len_copy2_start:
     mov x9, #0
-Lstr_concat_copy2:
+Lstr_concat_len_copy2:
     cmp x9, x22
-    b.ge Lstr_concat_done
-    ldrb w10, [x20, x9]
+    b.ge Lstr_concat_len_done
+    ldrb w10, [x21, x9]
     add x11, x24, x9
     strb w10, [x23, x11]
     add x9, x9, #1
-    b Lstr_concat_copy2
+    b Lstr_concat_len_copy2
 
-Lstr_concat_done:
+Lstr_concat_len_done:
     add x11, x24, x22
     strb wzr, [x23, x11]
     mov x0, x23
-    b Lstr_concat_return
+    b Lstr_concat_len_return
 
-Lstr_concat_fail:
+Lstr_concat_len_fail:
     mov x0, #0
 
-Lstr_concat_return:
+Lstr_concat_len_return:
+    ldp x25, x26, [sp], #16
     ldp x23, x24, [sp], #16
     ldp x21, x22, [sp], #16
+    ldp x19, x20, [sp], #16
+    ldp x29, x30, [sp], #16
+    ret
+
+.global _str_concat
+_str_concat:
+    stp x29, x30, [sp, #-16]!
+    mov x29, sp
+    stp x19, x20, [sp, #-16]!
+
+    mov x19, x0
+    mov x20, x1
+
+    mov x0, x19
+    bl _cstring_length
+    mov x2, x0
+
+    mov x0, x20
+    bl _cstring_length
+    mov x3, x0
+
+    mov x0, x19
+    mov x1, x2
+    mov x2, x20
+    // x3 is already len2
+    bl _str_concat_len
+
     ldp x19, x20, [sp], #16
     ldp x29, x30, [sp], #16
     ret

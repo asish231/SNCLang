@@ -3618,8 +3618,10 @@ Lexpr_add_str:
     
     // Both are literals. Concatenate at compile-time.
     mov x0, x19
-    mov x1, x1
-    bl _str_concat
+    mov x1, x21
+    mov x2, x1
+    // x3 is already right_len
+    bl _str_concat_len
     mov x19, x0
     add x21, x21, x3
     mov x20, #2

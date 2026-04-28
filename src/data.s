@@ -408,21 +408,42 @@ asm_store_var_suffix:
 #endif
 asm_close_bracket:
     .asciz "]\n"
-asm_load_x0_print_val_adrp:
+asm_load_x0_print_val_prefix:
+#ifdef _WIN32
     .asciz "    adrp x0, print_val_"
-asm_load_x0_print_val_add:
+#else
+    .asciz "    adrp x0, print_val_"
+#endif
+asm_load_x0_print_val_middle:
 #ifdef _WIN32
     .asciz "\n    add x0, x0, :lo12:print_val_"
 #else
     .asciz "@PAGE\n    add x0, x0, print_val_"
 #endif
-asm_load_x1_print_val_adrp:
+asm_load_x0_print_val_suffix:
+#ifdef _WIN32
+    .asciz "\n"
+#else
+    .asciz "@PAGEOFF\n"
+#endif
+
+asm_load_x1_print_val_prefix:
+#ifdef _WIN32
     .asciz "    adrp x1, print_val_"
-asm_load_x1_print_val_add:
+#else
+    .asciz "    adrp x1, print_val_"
+#endif
+asm_load_x1_print_val_middle:
 #ifdef _WIN32
     .asciz "\n    add x1, x1, :lo12:print_val_"
 #else
     .asciz "@PAGE\n    add x1, x1, print_val_"
+#endif
+asm_load_x1_print_val_suffix:
+#ifdef _WIN32
+    .asciz "\n"
+#else
+    .asciz "@PAGEOFF\n"
 #endif
 asm_load_x0_var:
     .asciz "    ldur x0, [x29, #-"

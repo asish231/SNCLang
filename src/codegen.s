@@ -839,21 +839,21 @@ Lemit_op_str_concat:
     // Load left into x0
     tbz x22, #0, Lemit_str_concat_left_var
     // left is imm (print_id)
-    LOAD_ADDR x0, asm_load_x0_print_val_adrp
+    LOAD_ADDR x0, asm_load_x0_print_val_prefix
     mov x1, #1
     bl _write_cstr_fd
     LOAD_ADDR x20, op_arg1
     ldr x0, [x20, x19, lsl #3]
     mov x1, #1
     bl _write_u64_fd
-    LOAD_ADDR x0, asm_load_x0_print_val_add
+    LOAD_ADDR x0, asm_load_x0_print_val_middle
     mov x1, #1
     bl _write_cstr_fd
     LOAD_ADDR x20, op_arg1
     ldr x0, [x20, x19, lsl #3]
     mov x1, #1
     bl _write_u64_fd
-    LOAD_ADDR x0, asm_close_bracket
+    LOAD_ADDR x0, asm_load_x0_print_val_suffix
     mov x1, #1
     bl _write_cstr_fd
     b Lemit_str_concat_right
@@ -874,21 +874,21 @@ Lemit_str_concat_right:
     // Load right into x1
     tbz x22, #1, Lemit_str_concat_right_var
     // right is imm (print_id)
-    LOAD_ADDR x0, asm_load_x1_print_val_adrp
+    LOAD_ADDR x0, asm_load_x1_print_val_prefix
     mov x1, #1
     bl _write_cstr_fd
     LOAD_ADDR x20, op_arg2
     ldr x0, [x20, x19, lsl #3]
     mov x1, #1
     bl _write_u64_fd
-    LOAD_ADDR x0, asm_load_x1_print_val_add
+    LOAD_ADDR x0, asm_load_x1_print_val_middle
     mov x1, #1
     bl _write_cstr_fd
     LOAD_ADDR x20, op_arg2
     ldr x0, [x20, x19, lsl #3]
     mov x1, #1
     bl _write_u64_fd
-    LOAD_ADDR x0, asm_close_bracket
+    LOAD_ADDR x0, asm_load_x1_print_val_suffix
     mov x1, #1
     bl _write_cstr_fd
     b Lemit_str_concat_call
@@ -930,21 +930,21 @@ Lemit_op_file_read:
 
     // Load path into x0
     tbz x22, #0, Lemit_file_read_path_var
-    LOAD_ADDR x0, asm_load_x0_print_val_adrp
+    LOAD_ADDR x0, asm_load_x0_print_val_prefix
     mov x1, #1
     bl _write_cstr_fd
     LOAD_ADDR x20, op_arg1
     ldr x0, [x20, x19, lsl #3]
     mov x1, #1
     bl _write_u64_fd
-    LOAD_ADDR x0, asm_load_x0_print_val_add
+    LOAD_ADDR x0, asm_load_x0_print_val_middle
     mov x1, #1
     bl _write_cstr_fd
     LOAD_ADDR x20, op_arg1
     ldr x0, [x20, x19, lsl #3]
     mov x1, #1
     bl _write_u64_fd
-    LOAD_ADDR x0, asm_close_bracket
+    LOAD_ADDR x0, asm_load_x0_print_val_suffix
     mov x1, #1
     bl _write_cstr_fd
     b Lemit_file_read_call
@@ -984,21 +984,21 @@ Lemit_op_file_write:
 
     // Load path into x0
     tbz x22, #0, Lemit_file_write_path_var
-    LOAD_ADDR x0, asm_load_x0_print_val_adrp
+    LOAD_ADDR x0, asm_load_x0_print_val_prefix
     mov x1, #1
     bl _write_cstr_fd
     LOAD_ADDR x20, op_arg1
     ldr x0, [x20, x19, lsl #3]
     mov x1, #1
     bl _write_u64_fd
-    LOAD_ADDR x0, asm_load_x0_print_val_add
+    LOAD_ADDR x0, asm_load_x0_print_val_middle
     mov x1, #1
     bl _write_cstr_fd
     LOAD_ADDR x20, op_arg1
     ldr x0, [x20, x19, lsl #3]
     mov x1, #1
     bl _write_u64_fd
-    LOAD_ADDR x0, asm_close_bracket
+    LOAD_ADDR x0, asm_load_x0_print_val_suffix
     mov x1, #1
     bl _write_cstr_fd
     b Lemit_file_write_data
@@ -1017,21 +1017,21 @@ Lemit_file_write_path_var:
 Lemit_file_write_data:
     // Load data into x1
     tbz x22, #1, Lemit_file_write_data_var
-    LOAD_ADDR x0, asm_load_x1_print_val_adrp
+    LOAD_ADDR x0, asm_load_x1_print_val_prefix
     mov x1, #1
     bl _write_cstr_fd
     LOAD_ADDR x20, op_arg2
     ldr x0, [x20, x19, lsl #3]
     mov x1, #1
     bl _write_u64_fd
-    LOAD_ADDR x0, asm_load_x1_print_val_add
+    LOAD_ADDR x0, asm_load_x1_print_val_middle
     mov x1, #1
     bl _write_cstr_fd
     LOAD_ADDR x20, op_arg2
     ldr x0, [x20, x19, lsl #3]
     mov x1, #1
     bl _write_u64_fd
-    LOAD_ADDR x0, asm_close_bracket
+    LOAD_ADDR x0, asm_load_x1_print_val_suffix
     mov x1, #1
     bl _write_cstr_fd
     b Lemit_file_write_call
