@@ -358,7 +358,6 @@ Lstmt_int_value_ok:
     mov x4, x23
     bl _define_variable
     cbnz x0, Lstmt_fail
-    cbnz x23, Lstmt_int_done
     mov x0, x19
     mov x1, x20
     bl _lookup_variable
@@ -417,8 +416,6 @@ Lstmt_bool_value_ok:
     mov x5, #0
     bl _define_variable
     cbnz x0, Lstmt_fail
-    cmp x23, #17
-    b.eq Lstmt_bool_done
     mov x0, x19
     mov x1, x20
     bl _lookup_variable
@@ -479,8 +476,6 @@ Lstmt_byte_type_ok:
     mov x5, #0
     bl _define_variable
     cbnz x0, Lstmt_fail
-    cmp x23, #19
-    b.eq Lstmt_byte_done
     mov x0, x19
     mov x1, x20
     bl _lookup_variable
@@ -552,8 +547,6 @@ Lstmt_dec_value_ok:
     mov x5, x23 // scale
     bl _define_variable
     cbnz x0, Lstmt_fail
-    cmp x24, #22
-    b.eq Lstmt_dec_done
     mov x0, x19
     mov x1, x20
     bl _lookup_variable

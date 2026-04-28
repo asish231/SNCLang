@@ -10,11 +10,51 @@ This document tracks verified bugs, confirmed missing features, and invalid synt
 ## 1. Verified Bugs (High Priority)
 
 ### 1.1 Nullable Stack Initialization Failure
-**Status:** REPRODUCED  
+**Status:** FIXED IN LOCAL CHANGES, NEEDS MAC VERIFICATION  
 **Description:** Comparing a nullable variable to `none` (e.g., `if (x == none)`) fails if the variable is checked before its first assignment. The compiler generates comparison logic against uninitialized stack slots, leading to garbage results or incorrect branch behavior.  
 **Requirements to Fix:**
-- Implement a "zero-init" pass for all local variables at the start of a function.
-- Ensure `none` comparisons (`stur xzr` vs `stur -1`) use consistent sentinel values across all types.
+- Ensure nullable declarations emit an initial runtime stack store, not just metadata registration.
+- Store the `none` sentinel consistently as `-1` for nullable runtime slots.
+- Review nullable declaration paths in `src/parser.s` that currently skip `_record_store_variable` after `_define_variable`.
+
+**Review Notes:**
+- This is a real issue.
+- The root cause is narrower than "all locals need zero-init".
+- Non-nullable declarations already emit runtime stores after `_define_variable`.
+- Several nullable declaration paths intentionally skip that store, which leaves the generated stack slot undefined even though `var_values` metadata contains `-1`.
+- Condition evaluation later reads runtime stack-backed vars, so `if (x == none)` can diverge from compiler metadata.
+
+**Likely affected declaration forms:**
+- `int? x = none`
+- `bool? x = none`
+- `byte? x = none`
+- `dec(2)? x = none`
+- `str? x = none`
+- nullable lists when later used through runtime-backed comparisons or control flow
+
+**Implemented fix:**
+
+- Nullable `int`, `bool`, `byte`, and `dec` declarations now emit the same initial runtime stack store path used by non-nullable declarations.
+- This ensures `none` (`-1`) reaches the generated stack slot before control-flow comparisons run.
+
+**Suggested verification case:**
+
+```sn
+fn main() {
+    int? x = none
+    if (x == none) {
+        print(1)
+    } else {
+        print(0)
+    }
+}
+```
+
+Expected output:
+
+```text
+1
+```
 
 ---
 
