@@ -1,0 +1,16 @@
+fn square(int n) -> int {
+    return n * n
+}
+
+fn main() {
+    int val = 5
+    int result = square(val)
+    print("Square of 5 is:")
+    print(result)
+
+    if (result == 25) {
+        print("Function call works!")
+    } else {
+        print("Function call failed!")
+    }
+}

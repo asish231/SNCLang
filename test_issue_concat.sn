@@ -1,0 +1,4 @@
+fn main() {
+    str s = "a" + "b"
+    print(s)
+}
