@@ -208,6 +208,7 @@
 .global list_pool_lengths
 .global map_pool_count
 .global map_pool_keys
+.global map_pool_key_lengths
 .global map_pool_values
 .global map_pool_lengths
 .global print_values
@@ -663,6 +664,7 @@ list_pool_values: .space 32768     // 4096 list elements
 list_pool_lengths: .space 32768
 map_pool_count:  .space 8
 map_pool_keys:   .space 32768
+map_pool_key_lengths: .space 32768
 map_pool_values: .space 32768
 map_pool_lengths: .space 32768
 print_values:   .space 16384       // 2048 prints
