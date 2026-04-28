@@ -54,8 +54,6 @@ Lmain_have_input:
     str x1, [x2]
     LOAD_ADDR x2, op_count
     str x1, [x2]
-    LOAD_ADDR x2, label_counter
-    str x1, [x2]
     LOAD_ADDR x2, current_loop_start
     str x1, [x2]
     LOAD_ADDR x2, current_loop_end

@@ -1031,6 +1031,8 @@ Lstmt_assign:
     b.eq Lstmt_assign_multiply
     cmp w0, #'/'
     b.eq Lstmt_assign_divide
+    cmp w0, #'%'
+    b.eq Lstmt_assign_mod
     cmp w0, #'('
     b.eq Lstmt_fn_call
     b Lstmt_unknown
@@ -1216,142 +1218,98 @@ Lstmt_assign_rt_mod:
     b Lstmt_assign_store
 
 Lstmt_assign_add:
-    bl _advance_char
-    mov w0, #'='
-    bl _expect_char
-    cbz x0, Lstmt_fail
-    mov x0, x19
-    mov x1, x20
-    bl _lookup_variable
-    cbz x0, Lstmt_unknown_var_assign
-    mov x25, x1
-    mov x26, x2
-    mov x27, x3
-    bl _parse_expr_value
-    cbz x0, Lstmt_fail
-    cmp x26, #6
-    b.eq Lstmt_assign_add_dec
-    cmp x2, #6
-    b.eq Lstmt_type_mismatch
-    add x21, x25, x1
-    mov x22, x26
-    mov x24, x27
-    b Lstmt_assign_store
-
-Lstmt_assign_add_dec:
-    cmp x2, #6
-    b.ne Lstmt_type_mismatch
-    cmp x3, x27
-    b.ne Lstmt_decimal_scale_error
-    add x21, x25, x1
-    mov x22, #6
-    mov x24, x27
-    b Lstmt_assign_store
-
+    mov x21, #1
+    b Lstmt_assign_compound_shared
 Lstmt_assign_subtract:
-    bl _advance_char
-    mov w0, #'='
-    bl _expect_char
-    cbz x0, Lstmt_fail
-    mov x0, x19
-    mov x1, x20
-    bl _lookup_variable
-    cbz x0, Lstmt_unknown_var_assign
-    mov x25, x1
-    mov x26, x2
-    mov x27, x3
-    bl _parse_expr_value
-    cbz x0, Lstmt_fail
-    cmp x26, #6
-    b.eq Lstmt_assign_sub_dec
-    cmp x2, #6
-    b.eq Lstmt_type_mismatch
-    sub x21, x25, x1
-    mov x22, x26
-    mov x24, x27
-    b Lstmt_assign_store
-
-Lstmt_assign_sub_dec:
-    cmp x2, #6
-    b.ne Lstmt_type_mismatch
-    cmp x3, x27
-    b.ne Lstmt_decimal_scale_error
-    sub x21, x25, x1
-    mov x22, #6
-    mov x24, x27
-    b Lstmt_assign_store
-
+    mov x21, #2
+    b Lstmt_assign_compound_shared
 Lstmt_assign_multiply:
-    bl _advance_char
-    mov w0, #'='
-    bl _expect_char
-    cbz x0, Lstmt_fail
-    mov x0, x19
-    mov x1, x20
-    bl _lookup_variable
-    cbz x0, Lstmt_unknown_var_assign
-    mov x25, x1
-    mov x26, x2
-    mov x27, x3
-    bl _parse_expr_value
-    cbz x0, Lstmt_fail
-    cmp x26, #6
-    b.eq Lstmt_assign_mul_dec
-    cmp x2, #6
-    b.eq Lstmt_type_mismatch
-    mul x21, x25, x1
-    mov x22, x26
-    mov x24, x27
-    b Lstmt_assign_store
-
-Lstmt_assign_mul_dec:
-    cmp x2, #6
-    b.ne Lstmt_type_mismatch
-    cmp x3, x27
-    b.ne Lstmt_decimal_scale_error
-    mul x21, x25, x1
-    mov x0, x27
-    bl _pow10_u64
-    udiv x21, x21, x0
-    mov x22, #6
-    mov x24, x27
-    b Lstmt_assign_store
-
+    mov x21, #3
+    b Lstmt_assign_compound_shared
 Lstmt_assign_divide:
-    bl _advance_char
+    mov x21, #4
+    b Lstmt_assign_compound_shared
+Lstmt_assign_mod:
+    mov x21, #5
+    b Lstmt_assign_compound_shared
+
+Lstmt_assign_compound_shared:
+    // x21 = op type (1=add, 2=sub, 3=mul, 4=div, 5=mod)
+    bl _advance_char // consume op
     mov w0, #'='
     bl _expect_char
     cbz x0, Lstmt_fail
+    
+    // Look up target variable
     mov x0, x19
     mov x1, x20
     bl _lookup_variable
     cbz x0, Lstmt_unknown_var_assign
-    mov x25, x1
-    mov x26, x2
-    mov x27, x3
+    mov x22, x4 // target_idx
+    mov x23, x2 // target_type
+    mov x25, x1 // target current value (for compile-time update)
+    mov x26, x3 // target scale (if decimal)
+
+    // Parse RHS
     bl _parse_expr_value
     cbz x0, Lstmt_fail
-    cbz x1, Lstmt_assign_divide_zero
-    cmp x26, #6
-    b.eq Lstmt_assign_div_dec
+    
+    // Check for decimals
+    cmp x23, #6
+    b.eq Lstmt_assign_compound_decimal
     cmp x2, #6
     b.eq Lstmt_type_mismatch
-    udiv x21, x25, x1
-    mov x22, x26
-    mov x24, x27
-    b Lstmt_assign_store
 
-Lstmt_assign_div_dec:
+    // Setup for Lstmt_assign_runtime_expr
+    // LHS index is already in x22, RHS value/idx in x1, op in x21, rhs_is_var in x4
+    mov x3, x1 // rhs val/idx
+    mov x2, x21 // op type
+    mov x1, x22 // lhs_idx
+    b Lstmt_assign_runtime_expr
+
+Lstmt_assign_compound_decimal:
+    // For now, keep decimal math as compile-time only
+    // lhs_type=x23=6, rhs_type=x2, rhs_val=x1, lhs_val=x25, lhs_scale=x26, rhs_scale=x3, op=x21
     cmp x2, #6
     b.ne Lstmt_type_mismatch
-    cmp x3, x27
+    cmp x3, x26
     b.ne Lstmt_decimal_scale_error
-    mov x0, x27
+    
+    // Dispatch op
+    cmp x21, #1
+    b.eq Lstmt_assign_dec_add
+    cmp x21, #2
+    b.eq Lstmt_assign_dec_sub
+    cmp x21, #3
+    b.eq Lstmt_assign_dec_mul
+    cmp x21, #4
+    b.eq Lstmt_assign_dec_div
+    // mod not supported for dec
+    b Lstmt_fail
+
+Lstmt_assign_dec_add:
+    add x21, x25, x1
+    mov x22, #6
+    mov x24, x26
+    b Lstmt_assign_store
+Lstmt_assign_dec_sub:
+    sub x21, x25, x1
+    mov x22, #6
+    mov x24, x26
+    b Lstmt_assign_store
+Lstmt_assign_dec_mul:
+    mul x21, x25, x1
+    mov x22, #6
+    mov x24, x26
+    b Lstmt_assign_store
+Lstmt_assign_dec_div:
+    cbz x1, Lstmt_assign_divide_zero
+    mov x0, x26
     bl _pow10_u64
     mul x21, x25, x0
     sdiv x21, x21, x1
     mov x22, #6
-    mov x24, x27
+    mov x24, x26
     b Lstmt_assign_store
 
 Lstmt_assign_divide_zero:
@@ -1628,9 +1586,9 @@ Lif_body_loop:
     bl _parse_statement
     cbz x0, Lif_body_loop
     cmp x0, #2
-    b.eq Lif_return
+    b.eq Lif_body_loop
     cmp x0, #3
-    b.eq Lif_return
+    b.eq Lif_body_loop
     cmp x0, #4
     b.eq Lif_return_propagate
     b Lif_fail
@@ -1669,9 +1627,9 @@ Lif_else_loop:
     bl _parse_statement
     cbz x0, Lif_else_loop
     cmp x0, #2
-    b.eq Lif_return
+    b.eq Lif_else_loop
     cmp x0, #3
-    b.eq Lif_return
+    b.eq Lif_else_loop
     cmp x0, #4
     b.eq Lif_return_propagate
     b Lif_fail
@@ -2181,6 +2139,11 @@ Lfor_counted_return_restore_labels:
      str x10, [x9]
      str xzr, [sp, #16]
 Lfor_skip_block_done_no_depth:
+     ldp x10, x11, [sp]
+     LOAD_ADDR x9, current_loop_start
+     str x10, [x9]
+     LOAD_ADDR x9, current_loop_end
+     str x11, [x9]
      mov x0, #0
      b Lfor_return
  
@@ -2258,11 +2221,19 @@ Lfor_in_setup:
 
     cbz x20, Lfor_skip_block_done
 
+    bl _get_next_label
+    LOAD_ADDR x9, current_loop_end
+    str x0, [x9]
+
     mov x26, #0
 
 Lfor_in_iteration:
     cmp x26, x20
     b.ge Lfor_in_done
+
+    bl _get_next_label
+    LOAD_ADDR x9, current_loop_start
+    str x0, [x9]
 
     add x9, x19, x26
     LOAD_ADDR x10, list_pool_values
@@ -2328,12 +2299,30 @@ Lfor_in_body_loop:
 
 Lfor_in_body_done:
     bl _advance_char
+
+    mov x0, #35
+    LOAD_ADDR x9, current_loop_start
+    ldr x1, [x9]
+    mov x2, #0
+    mov x3, #0
+    mov x4, #0
+    bl _record_operation4
+
     add x26, x26, #1
     b Lfor_in_iteration
 
 Lfor_in_skip_rest:
     bl _skip_block_contents
     cbnz x0, Lfor_fail
+
+    mov x0, #35
+    LOAD_ADDR x9, current_loop_start
+    ldr x1, [x9]
+    mov x2, #0
+    mov x3, #0
+    mov x4, #0
+    bl _record_operation4
+
     add x26, x26, #1
     b Lfor_in_iteration
 
@@ -2348,6 +2337,20 @@ Lfor_in_stop:
     str x10, [x9]
     str xzr, [sp, #16]
 Lfor_in_stop_no_depth:
+    mov x0, #35
+    LOAD_ADDR x9, current_loop_end
+    ldr x1, [x9]
+    mov x2, #0
+    mov x3, #0
+    mov x4, #0
+    bl _record_operation4
+
+    ldp x10, x11, [sp]
+    LOAD_ADDR x9, current_loop_start
+    str x10, [x9]
+    LOAD_ADDR x9, current_loop_end
+    str x11, [x9]
+
     mov x0, #0
     b Lfor_return
 
@@ -2360,6 +2363,20 @@ Lfor_in_done:
     str x10, [x9]
     str xzr, [sp, #16]
 Lfor_in_done_no_depth:
+    mov x0, #35
+    LOAD_ADDR x9, current_loop_end
+    ldr x1, [x9]
+    mov x2, #0
+    mov x3, #0
+    mov x4, #0
+    bl _record_operation4
+
+    ldp x10, x11, [sp]
+    LOAD_ADDR x9, current_loop_start
+    str x10, [x9]
+    LOAD_ADDR x9, current_loop_end
+    str x11, [x9]
+
     mov x0, #0
     b Lfor_return
 
@@ -4500,6 +4517,28 @@ Lfn_call_define_arg_len_ok:
     mov x4, x27  // type
     mov x5, x7
     bl _define_variable
+    cbnz x0, Lfn_call_fail
+
+    // Also emit runtime store for the parameter
+    // x22 was var_count before defines. Each param is at x22 + x24.
+    LOAD_ADDR x9, var_count
+    ldr x0, [x9]
+    sub x1, x0, #1 // target var index (the one we just defined)
+    
+    cbz x4, Lfn_call_emit_imm
+    // emit op 45 (store_var_var)
+    mov x0, #45
+    mov x2, x28 // source var_id
+    // x1 is already target var index
+    bl _record_operation
+    b Lfn_call_emit_done
+Lfn_call_emit_imm:
+    // emit op 1 (store_var_imm)
+    mov x0, #1
+    mov x2, x28 // imm value
+    // x1 is already target var index
+    bl _record_operation
+Lfn_call_emit_done:
     cbnz x0, Lfn_call_fail
 
 Lfn_call_arg_next:

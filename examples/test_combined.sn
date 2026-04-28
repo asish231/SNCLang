@@ -1,0 +1,18 @@
+int count = 10
+
+fn process(int count) {
+    for (i in [1, 2, 3, 4, 5]) {
+        if (i == 3) {
+            skip
+        }
+        if (i == 5) {
+            stop
+        }
+        print(i * count)
+    }
+}
+
+fn main() {
+    process(5)
+    print(count)
+}

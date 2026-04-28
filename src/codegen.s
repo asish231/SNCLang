@@ -13,7 +13,7 @@ _emit_program:
     mov x1, #1
     bl _write_cstr_fd
 
-    LOAD_ADDR x19, var_count
+    LOAD_ADDR x19, max_var_count
     ldr x19, [x19]
     mov x20, #8
     mul x19, x19, x20
@@ -129,6 +129,8 @@ _emit_operation:
     b.eq Lemit_op_logic_or
     cmp x21, #44
     b.eq Lemit_op_logic_not
+    cmp x21, #45
+    b.eq Lemit_op_store_var_var
     cmp x21, #46
     b.eq Lemit_op_update_label
     cmp x21, #47
@@ -460,7 +462,7 @@ Lemit_op_store_math_var:
     ldr x0, [x20, x19, lsl #3]
     mov x1, #1
     bl _write_stack_offset_fd
-    LOAD_ADDR x0, asm_store_var_suffix
+    LOAD_ADDR x0, asm_close_bracket
     mov x1, #1
     bl _write_cstr_fd
 
@@ -503,7 +505,7 @@ Lemit_op_print_math_var:
     ldr x0, [x20, x19, lsl #3]
     mov x1, #1
     bl _write_stack_offset_fd
-    LOAD_ADDR x0, asm_store_var_suffix
+    LOAD_ADDR x0, asm_close_bracket
     mov x1, #1
     bl _write_cstr_fd
 
@@ -579,7 +581,7 @@ Lemit_op_store_math_target_var:
     ldr x0, [x20, x19, lsl #3]
     mov x1, #1
     bl _write_stack_offset_fd
-    LOAD_ADDR x0, asm_store_var_suffix
+    LOAD_ADDR x0, asm_close_bracket
     mov x1, #1
     bl _write_cstr_fd
 
@@ -588,6 +590,35 @@ Lemit_op_store_math_target_var:
     bl _emit_math_opcode_x11
 
     LOAD_ADDR x0, asm_math_store_x11_str
+    mov x1, #1
+    bl _write_cstr_fd
+    LOAD_ADDR x20, op_arg0
+    ldr x0, [x20, x19, lsl #3]
+    mov x1, #1
+    bl _write_stack_offset_fd
+    LOAD_ADDR x0, asm_close_bracket
+    mov x1, #1
+    bl _write_cstr_fd
+    b Lemit_op_done
+
+Lemit_op_store_var_var:
+    // load source var (op_arg1) into x10
+    LOAD_ADDR x0, asm_math_var_x10_ldr
+    mov x1, #1
+    bl _write_cstr_fd
+    LOAD_ADDR x20, op_arg1
+    ldr x0, [x20, x19, lsl #3]
+    mov x1, #1
+    bl _write_stack_offset_fd
+    LOAD_ADDR x0, asm_close_bracket
+    mov x1, #1
+    bl _write_cstr_fd
+
+    // store x10 into dest var (op_arg0)
+    LOAD_ADDR x0, asm_math_store_x11_str // "    stur x11, [x29, #-" -- wait, I need stur x10!
+    // I should probably add asm_math_store_x10_str to data.s
+    // Or just use asm_input_store_x10_str which is exactly what I need!
+    LOAD_ADDR x0, asm_input_store_x10_str
     mov x1, #1
     bl _write_cstr_fd
     LOAD_ADDR x20, op_arg0

@@ -76,6 +76,12 @@ Ldefine_store:
     str x27, [x24, x23, lsl #3]
     add x23, x23, #1
     str x23, [x22]
+    
+    LOAD_ADDR x24, max_var_count
+    ldr x25, [x24]
+    cmp x23, x25
+    b.le Ldefine_return
+    str x23, [x24]
     mov x0, #0
     b Ldefine_return
 

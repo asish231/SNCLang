@@ -13,6 +13,7 @@
 .global msg_unknown_stmt
 .global msg_unknown_var
 .global msg_duplicate_var
+.global msg_loop_control
 .global msg_divide_zero
 .global msg_const_assign
 .global msg_expected_type
@@ -199,6 +200,7 @@
 .global fn_return_length
 .global fn_return_flag
 .global var_scope_base
+.global max_var_count
 .global saved_var_count
 
 msg_usage:         .asciz "usage: ./snc <source.sn>\n"
@@ -504,6 +506,8 @@ newline_char:      .byte 10
 zero_qword:        .quad 0
 single_char:       .byte 0
 close_brace_char:  .byte 125
+.align 3
+label_counter:     .quad 1
 
 .bss
 .align 4
@@ -516,7 +520,6 @@ current_line:   .space 8
 var_count:      .space 8
 print_count:    .space 8
 op_count:       .space 8
-label_counter:  .space 8
 current_loop_start: .space 8
 current_loop_end: .space 8
 loop_context_depth: .space 8
@@ -553,4 +556,5 @@ fn_return_value: .space 8
 fn_return_length: .space 8
 fn_return_flag:  .space 8
 var_scope_base: .space 8
+max_var_count:  .space 8
 saved_var_count: .space 8
