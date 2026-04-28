@@ -781,9 +781,12 @@ Lstmt_map:
     cmp x22, x24
     b.ne Lstmt_type_mismatch
     // check metadata (key and value types)
-    lsl x9, x23, #32
-    orr x9, x9, x26
-    cmp x25, x9
+    lsr x9, x25, #40 // actual key type
+    cmp x9, x23
+    b.ne Lstmt_type_mismatch
+    
+    ubfx x9, x25, #32, #8 // actual val type
+    cmp x9, x26
     b.ne Lstmt_type_mismatch
 
 Lstmt_map_value_ok:
@@ -3071,9 +3074,15 @@ Llist_loop:
 
     cmp x22, #-1
     b.ne Llist_check_type
-    cmp x24, #0
+    cmp x24, #0 // int
     b.eq Llist_set_type
-    cmp x24, #2
+    cmp x24, #1 // bool
+    b.eq Llist_set_type
+    cmp x24, #2 // str
+    b.eq Llist_set_type
+    cmp x24, #3 // byte
+    b.eq Llist_set_type
+    cmp x24, #6 // dec
     b.eq Llist_set_type
     b Llist_fail
 
@@ -3199,6 +3208,8 @@ Lmap_store:
     ldr x10, [x9]
     LOAD_ADDR x11, map_pool_keys
     str x23, [x11, x10, lsl #3]
+    LOAD_ADDR x11, map_pool_key_lengths
+    str x25, [x11, x10, lsl #3]
     LOAD_ADDR x11, map_pool_values
     str x26, [x11, x10, lsl #3]
     LOAD_ADDR x11, map_pool_lengths
@@ -4323,8 +4334,7 @@ Lprimary_indexing:
     cbz x0, Lprimary_fail
     mov x23, x1 // index
     mov x24, x2 // index type
-    cmp x24, #0
-    b.ne Lprimary_fail
+    mov x21, x3 // index metadata/length
     
     bl _skip_whitespace
     mov w0, #']'
@@ -4334,6 +4344,10 @@ Lprimary_indexing:
     cmp x26, #8 // map
     b.eq Lprimary_map_lookup_val
     cmp x26, #4 // list
+    b.ne Lprimary_fail
+    
+    // If it's a list, index must be an int
+    cmp x24, #0
     b.ne Lprimary_fail
     
     and x9, x27, #0xFFFFFFFF // count
@@ -4358,19 +4372,58 @@ Lprimary_map_lookup_val:
     and x20, x27, #0xFFFFFFFF // count
     cbz x20, Lprimary_fail
     
-    mov x21, #0
+    mov x22, #0 // loop counter
 Lmap_lookup_loop_val:
-    add x10, x25, x21
+    add x10, x25, x22
     LOAD_ADDR x11, map_pool_keys
     ldr x12, [x11, x10, lsl #3]
+    
+    // If it's a string, we need to compare using _match_span_span
+    cmp x24, #2
+    b.eq Lmap_lookup_str_val
+    
+    // Not a string, normal compare
     cmp x12, x23
     b.eq Lmap_lookup_found_val
-    add x21, x21, #1
-    cmp x21, x20
+    b Lmap_lookup_next_val
+    
+Lmap_lookup_str_val:
+    LOAD_ADDR x11, map_pool_key_lengths
+    ldr x13, [x11, x10, lsl #3]
+    // x12=pool ptr, x13=pool len, x23=lookup ptr, x21=lookup len
+    cmp x13, x21
+    b.ne Lmap_lookup_next_val
+    
+    // Call _match_span_span(x12, x13, x23)
+    // We need to save our state. _match_span_span clobbers x0,x1,x2,x9,x10,x11,x19,x20...
+    // WAIT! _match_span_span saves x19, x20! So we can safely use them!
+    // But we are currently using x19..x28!
+    // Let's look at _match_span_span. It saves x19, x20, x29, x30. It doesn't save x10!
+    // We must push/pop what we need.
+    stp x20, x22, [sp, #-16]!
+    stp x25, x26, [sp, #-16]!
+    stp x27, x28, [sp, #-16]!
+    
+    mov x0, x12
+    mov x1, x13
+    mov x2, x23
+    bl _match_span_span
+    mov x12, x0 // result
+    
+    ldp x27, x28, [sp], #16
+    ldp x25, x26, [sp], #16
+    ldp x20, x22, [sp], #16
+    
+    cbnz x12, Lmap_lookup_found_val
+    
+Lmap_lookup_next_val:
+    add x22, x22, #1
+    cmp x22, x20
     b.lt Lmap_lookup_loop_val
     b Lprimary_fail
 
 Lmap_lookup_found_val:
+    add x10, x25, x22 // restore x10 just in case
     LOAD_ADDR x11, map_pool_values
     ldr x25, [x11, x10, lsl #3]
     LOAD_ADDR x11, map_pool_lengths
