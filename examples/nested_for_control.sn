@@ -1,0 +1,32 @@
+fn main() {
+    for (int i = 0, i < 8, i += 1) {
+        if (i == 2) {
+            skip
+        }
+
+        if (i == 6) {
+            stop
+        }
+
+        if (i % 2 == 0) {
+            print(i * 10)
+        } else {
+            print(i)
+        }
+    }
+
+    list<int> values = [1, 2, 3, 4, 5, 6]
+    for (value in values) {
+        if (value == 2) {
+            skip
+        }
+        if (value == 5) {
+            stop
+        }
+        if (value % 2 == 0) {
+            print(value * 100)
+        } else {
+            print(value)
+        }
+    }
+}

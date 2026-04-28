@@ -1,0 +1,11 @@
+fn main() {
+    int score = 10
+    score += 5
+    print(score)
+
+    score -= 3
+    print(score)
+
+    score *= 4
+    print(score)
+}

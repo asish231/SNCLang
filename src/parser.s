@@ -106,6 +106,8 @@ _parse_statement:
     stp x19, x20, [sp, #-16]!
     stp x21, x22, [sp, #-16]!
     stp x23, x24, [sp, #-16]!
+    stp x25, x26, [sp, #-16]!
+    stp x27, x28, [sp, #-16]!
 
     bl _parse_identifier
     cbz x0, Lstmt_need_keyword
@@ -1150,12 +1152,10 @@ Lstmt_assign_runtime_eval_mod:
     msub x28, x9, x26, x25
 
 Lstmt_assign_runtime_update:
-    mov x0, x19
-    mov x1, x20
-    mov x2, x28
-    bl _set_variable
-    cbnz x0, Lstmt_fail
-
+    // Record runtime op before mutating compiler-side variable state so the
+    // original lhs/rhs operands cannot be lost across helper calls.
+    sub sp, sp, #16
+    str x28, [sp]
     cbz x24, Lstmt_assign_runtime_expr_record_imm
     add x0, x22, #27
     mov x1, x27
@@ -1170,10 +1170,21 @@ Lstmt_assign_runtime_expr_record_imm:
     mov x3, x23
     bl _record_operation3
 Lstmt_assign_runtime_record_done:
+    cbnz x0, Lstmt_assign_runtime_record_fail
+    ldr x28, [sp]
+    add sp, sp, #16
+    mov x0, x19
+    mov x1, x20
+    mov x2, x28
+    bl _set_variable
     cbnz x0, Lstmt_fail
     bl _consume_optional_semicolon
     mov x0, #0
     b Lstmt_return
+
+Lstmt_assign_runtime_record_fail:
+    add sp, sp, #16
+    b Lstmt_fail
 
 Lstmt_assign_runtime_fallback:
     mov x0, x19
@@ -1260,9 +1271,18 @@ Lstmt_assign_compound_shared:
     cmp x2, #6
     b.eq Lstmt_type_mismatch
 
-    // Setup for Lstmt_assign_runtime_expr
-    // LHS index is already in x22, RHS value/idx in x1, op in x21, rhs_is_var in x4
-    mov x3, x1 // rhs val/idx
+    // Setup for Lstmt_assign_runtime_expr.
+    // _parse_expr_value returns rhs slot id in x4 (-1 means immediate).
+    // Runtime path expects rhs kind in x4 (0 immediate, 1 variable).
+    mov x3, x1 // rhs value (immediate) or rhs var index
+    // Convert parser slot marker to runtime rhs-kind flag.
+    // Parser returns x4 = -1 for immediate, otherwise variable index.
+    mov x9, x4
+    add x9, x9, #1
+    mov x4, #1
+    cbnz x9, Lstmt_assign_compound_rhs_kind_ready
+    mov x4, #0
+Lstmt_assign_compound_rhs_kind_ready:
     mov x2, x21 // op type
     mov x1, x22 // lhs_idx
     b Lstmt_assign_runtime_expr
@@ -1299,6 +1319,9 @@ Lstmt_assign_dec_sub:
     b Lstmt_assign_store
 Lstmt_assign_dec_mul:
     mul x21, x25, x1
+    mov x0, x26
+    bl _pow10_u64
+    udiv x21, x21, x0
     mov x22, #6
     mov x24, x26
     b Lstmt_assign_store
@@ -1415,6 +1438,8 @@ Lstmt_fail:
     mov x0, #1
 
 Lstmt_return:
+    ldp x27, x28, [sp], #16
+    ldp x25, x26, [sp], #16
     ldp x23, x24, [sp], #16
     ldp x21, x22, [sp], #16
     ldp x19, x20, [sp], #16
@@ -2148,6 +2173,8 @@ Lfor_skip_block_done_no_depth:
      b Lfor_return
  
 Lfor_counted_fail:
+    LOAD_ADDR x0, msg_expected_stmt
+    bl _report_error_prefix
     // Restore previous loop labels on counted-loop failure
     ldr x12, [sp, #16]
     cbz x12, Lfor_counted_fail_restore_labels
@@ -2166,6 +2193,8 @@ Lfor_counted_fail_restore_labels:
     b Lfor_return
 
 Lfor_fail:
+    LOAD_ADDR x0, msg_expected_stmt
+    bl _report_error_prefix
     ldr x12, [sp, #16]
     cbz x12, Lfor_fail_restore_labels
     LOAD_ADDR x9, loop_context_depth

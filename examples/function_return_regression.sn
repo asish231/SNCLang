@@ -1,0 +1,20 @@
+int seed = 50
+
+fn adjust(int seed, int delta) -> int {
+    int local = seed
+    local += delta
+    if (local > 60) {
+        return local
+    }
+    return local * 2
+}
+
+fn main() {
+    int first = adjust(20, 5)
+    print(first)
+
+    int second = adjust(55, 10)
+    print(second)
+
+    print(seed)
+}

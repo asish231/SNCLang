@@ -1341,7 +1341,7 @@ Lemit_store_data_check_math:
     b.gt Lemit_store_data_done
 
 Lemit_store_data_cmp_imm:
-    // emit store_val_{op_index}: .quad {op_arg1}  for the right-hand immediate
+    // emit store_val_{op_index} for ops that need an embedded immediate.
     LOAD_ADDR x0, asm_align_3
     mov x1, #1
     bl _write_cstr_fd
@@ -1414,7 +1414,7 @@ Lemit_store_data_emit:
     mov x1, #1
     bl _write_cstr_fd
 
-    cmp x21, #23
+    cmp x21, #22
     b.lt Lemit_store_data_arg1
     LOAD_ADDR x20, op_arg2
     b Lemit_store_data_load
