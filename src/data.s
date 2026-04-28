@@ -208,6 +208,10 @@
 .global fn_param_lengths
 .global fn_param_name_ptrs
 .global fn_param_name_lens
+.global fn_param_default_flags
+.global fn_param_default_values
+.global fn_param_default_types
+.global fn_param_default_lengths
 .global fn_return_types
 .global fn_return_decl_lengths
 .global fn_return_value
@@ -608,6 +612,10 @@ fn_param_types: .space 2048        // 64 fns * 4 params * 8 bytes
 fn_param_lengths: .space 2048
 fn_param_name_ptrs: .space 2048
 fn_param_name_lens: .space 2048
+fn_param_default_flags: .space 2048
+fn_param_default_values: .space 2048
+fn_param_default_types: .space 2048
+fn_param_default_lengths: .space 2048
 fn_return_decl_lengths: .space 512
 fn_return_value: .space 8
 fn_return_length: .space 8

@@ -4826,6 +4826,44 @@ Lfn_def_param_skip_store:
     LOAD_ADDR x10, fn_param_name_lens
     str x24, [x10, x9, lsl #3]
 Lfn_def_param_done:
+    // Optional default value: type name = expr
+    bl _skip_whitespace
+    bl _peek_char
+    cmp w0, #'='
+    b.ne Lfn_def_param_next
+    bl _advance_char
+    bl _parse_expr_value
+    cbz x0, Lfn_def_fail
+    mov x11, x1 // default value
+    mov x12, x2 // default type
+    mov x13, x3 // default length
+    cmp x12, x25
+    b.eq Lfn_def_param_default_type_ok
+    cmp x25, #3
+    b.ne Lfn_def_fail
+    cmp x12, #0
+    b.ne Lfn_def_fail
+Lfn_def_param_default_type_ok:
+    cmp x25, #6
+    b.ne Lfn_def_param_default_store
+    cmp x13, x24
+    b.ne Lfn_def_fail
+Lfn_def_param_default_store:
+    cbnz x26, Lfn_def_param_next
+    mov x9, x21
+    lsl x9, x9, #2
+    add x9, x9, x22
+    LOAD_ADDR x10, fn_param_default_flags
+    mov x14, #1
+    str x14, [x10, x9, lsl #3]
+    LOAD_ADDR x10, fn_param_default_values
+    str x11, [x10, x9, lsl #3]
+    LOAD_ADDR x10, fn_param_default_types
+    str x12, [x10, x9, lsl #3]
+    LOAD_ADDR x10, fn_param_default_lengths
+    str x13, [x10, x9, lsl #3]
+
+Lfn_def_param_next:
 
     add x22, x22, #1
     b Lfn_def_param_loop
@@ -5138,9 +5176,46 @@ Lfn_call_arg_next:
 Lfn_call_args_done:
     bl _advance_char // consume ')'
 
-    // Check arg count matches param count
+    // Fill missing arguments from defaults.
+Lfn_call_fill_defaults:
     cmp x24, x23
-    b.ne Lfn_call_wrong_args
+    b.ge Lfn_call_args_ready
+    cmp x24, #4
+    b.ge Lfn_call_wrong_args
+    mov x9, x21
+    lsl x9, x9, #2
+    add x9, x9, x24
+    LOAD_ADDR x10, fn_param_default_flags
+    ldr x11, [x10, x9, lsl #3]
+    cbz x11, Lfn_call_wrong_args
+    LOAD_ADDR x10, fn_param_name_ptrs
+    ldr x25, [x10, x9, lsl #3]
+    LOAD_ADDR x10, fn_param_name_lens
+    ldr x26, [x10, x9, lsl #3]
+    LOAD_ADDR x10, fn_param_types
+    ldr x27, [x10, x9, lsl #3]
+    LOAD_ADDR x10, fn_param_default_values
+    ldr x28, [x10, x9, lsl #3]
+    LOAD_ADDR x10, fn_param_default_lengths
+    ldr x5, [x10, x9, lsl #3]
+    mov x0, x25
+    mov x1, x26
+    mov x2, x28
+    mov x3, #0
+    mov x4, x27
+    bl _define_variable
+    cbnz x0, Lfn_call_fail
+    LOAD_ADDR x9, var_count
+    ldr x0, [x9]
+    sub x1, x0, #1
+    mov x0, #1
+    mov x2, x28
+    bl _record_operation
+    cbnz x0, Lfn_call_fail
+    add x24, x24, #1
+    b Lfn_call_fill_defaults
+
+Lfn_call_args_ready:
 
     // Save current cursor position (after the call site)
     LOAD_ADDR x9, cursor_pos

@@ -1,3 +1,9 @@
+# Planning Docs
+
+- `BATCH_ROADMAP.md`: batch execution roadmap
+- `COMPILER_COMPLETION_CHECKLIST.md`: full-system completion status board
+- `ARCHITECTURE_BASELINE_V1.md`: AST/IR/ABI architecture baseline
+
 # snc
 
 `snc` is a small programming language compiler written in ARM64 assembly.

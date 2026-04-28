@@ -88,6 +88,9 @@ test: $(SNC) | $(TMPDIR)
 	./$(SNC) examples/nullable_functions.sn > $(TMPDIR)/snc_nullable_functions.s
 	$(CC) $(TMPDIR)/snc_nullable_functions.s -o $(TMPDIR)/snc_nullable_functions$(EXEEXT)
 	./$(TMPDIR)/snc_nullable_functions$(EXEEXT)
+	./$(SNC) examples/default_params.sn > $(TMPDIR)/snc_default_params.s
+	$(CC) $(TMPDIR)/snc_default_params.s -o $(TMPDIR)/snc_default_params$(EXEEXT)
+	./$(TMPDIR)/snc_default_params$(EXEEXT)
 	./$(SNC) examples/otherwise.sn > $(TMPDIR)/snc_otherwise.s
 	$(CC) $(TMPDIR)/snc_otherwise.s -o $(TMPDIR)/snc_otherwise$(EXEEXT)
 	./$(TMPDIR)/snc_otherwise$(EXEEXT)
