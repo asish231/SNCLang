@@ -3,6 +3,7 @@
  .align 4
  .global _parse_program
  .global _parse_statement
+ .global _pow10_u64
 
 _parse_program:
     stp x29, x30, [sp, #-16]!
@@ -1357,28 +1358,28 @@ Lstmt_assign_compound_decimal:
     b.ne Lstmt_type_mismatch
     cmp x3, x26
     b.ne Lstmt_decimal_scale_error
+    mov x23, x21
+    mov x27, x4
     mov x28, x1
     
     // Dispatch op
-    cmp x21, #1
+    cmp x23, #1
     b.eq Lstmt_assign_dec_add
-    cmp x21, #2
+    cmp x23, #2
     b.eq Lstmt_assign_dec_sub
-    cmp x21, #3
+    cmp x23, #3
     b.eq Lstmt_assign_dec_mul
-    cmp x21, #4
+    cmp x23, #4
     b.eq Lstmt_assign_dec_div
     // mod not supported for dec
     b Lstmt_fail
 
 Lstmt_assign_dec_add:
     add x21, x25, x1
-    mov x22, #6
     mov x24, x26
     b Lstmt_assign_dec_record
 Lstmt_assign_dec_sub:
     sub x21, x25, x1
-    mov x22, #6
     mov x24, x26
     b Lstmt_assign_dec_record
 Lstmt_assign_dec_mul:
@@ -1386,7 +1387,6 @@ Lstmt_assign_dec_mul:
     mov x0, x26
     bl _pow10_u64
     udiv x21, x21, x0
-    mov x22, #6
     mov x24, x26
     b Lstmt_assign_dec_record
 Lstmt_assign_dec_div:
@@ -1395,7 +1395,6 @@ Lstmt_assign_dec_div:
     bl _pow10_u64
     mul x21, x25, x0
     sdiv x21, x21, x1
-    mov x22, #6
     mov x24, x26
     b Lstmt_assign_dec_record
 
@@ -1404,15 +1403,15 @@ Lstmt_assign_dec_record:
     str x21, [sp]
     cmn x27, #1
     b.eq Lstmt_assign_dec_record_imm
-    add x0, x22, #46
-    mov x1, x19
+    add x0, x23, #51
+    mov x1, x22
     mov x2, x26
     mov x3, x27
     bl _record_operation3
     b Lstmt_assign_dec_record_done
 Lstmt_assign_dec_record_imm:
-    add x0, x22, #42
-    mov x1, x19
+    add x0, x23, #47
+    mov x1, x22
     mov x2, x26
     mov x3, #0
     mov x4, x28
@@ -1421,7 +1420,14 @@ Lstmt_assign_dec_record_done:
     cbnz x0, Lstmt_assign_compound_record_fail
     ldr x21, [sp]
     add sp, sp, #16
-    b Lstmt_assign_store
+    mov x0, x19
+    mov x1, x20
+    mov x2, x21
+    bl _set_variable
+    cbnz x0, Lstmt_fail
+    bl _consume_optional_semicolon
+    mov x0, #0
+    b Lstmt_return
 
 Lstmt_assign_divide_zero:
     LOAD_ADDR x0, msg_divide_zero
