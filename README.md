@@ -49,8 +49,8 @@ Today, SNlang is an early compiled language with a working core for:
 
 It is still in a stabilization phase. The language is no longer just a parser toy,
 but it is not yet a complete general-purpose language. Runtime behavior is getting
-stronger, while larger features like maps, nullable values, modules, OOP, pointers,
-and concurrency are still ahead.
+stronger, while larger features like maps, modules, OOP, pointers, and concurrency
+are still ahead.
 
 Code generation emits ARM64 assembly and uses runtime stack slots for variables.
 More behavior now runs through emitted code than before, especially around loops,
@@ -123,6 +123,8 @@ Supported today:
 - functions with parameters and return values
 - nested and forward function calls
 - partial `list<T>` literals and `for in` iteration
+- `none`, nullable `?` declarations, and `otherwise`
+- default parameters
 - logical `and`, `or`, and `not`
 - `// line comments`
 - `/* block comments */`
@@ -134,7 +136,6 @@ Still planned from `SNLANG_SPEC.md`:
 - richer logical precedence
 - full `list<T>` semantics
 - `map<K,V>`
-- `none`, nullable types, and `otherwise`
 - multiple return values
 - blueprints/contracts/OOP
 - real module loading and imports

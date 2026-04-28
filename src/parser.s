@@ -523,23 +523,22 @@ Lstmt_dec_name:
 
     bl _parse_expr_value
     cbz x0, Lstmt_fail
-    cmp x2, #6
-    b.eq Lstmt_dec_check_scale
     cmp x24, #22
+    b.eq Lstmt_dec_check_nullable
+    cmp x2, #6
     b.ne Lstmt_type_mismatch
+    b Lstmt_dec_check_scale
+Lstmt_dec_check_nullable:
     cmp x2, #7
+    b.eq Lstmt_dec_value_ok
+    cmp x2, #22
+    b.eq Lstmt_dec_check_scale
+    cmp x2, #6
     b.ne Lstmt_type_mismatch
-    b Lstmt_dec_value_ok
+    b Lstmt_dec_check_scale
 Lstmt_dec_check_scale:
     cmp x3, x23
     b.ne Lstmt_decimal_scale_error
-    cmp x24, #22
-    b.ne Lstmt_dec_value_ok
-    cmp x2, #22
-    b.eq Lstmt_dec_value_ok
-    cmp x2, #6
-    b.eq Lstmt_dec_value_ok
-    b Lstmt_type_mismatch
 Lstmt_dec_value_ok:
     mov x21, x1
 
@@ -721,11 +720,14 @@ Lstmt_list_name:
     cmp x22, x24
     b.eq Lstmt_list_value_ok
     cmp x24, #20
-    b.eq Lstmt_list_check_none
+    b.eq Lstmt_list_check_nullable
     cmp x24, #21
     b.ne Lstmt_type_mismatch
-Lstmt_list_check_none:
+Lstmt_list_check_nullable:
     cmp x22, #7
+    b.eq Lstmt_list_value_ok
+    sub x9, x24, #16
+    cmp x22, x9
     b.ne Lstmt_type_mismatch
 Lstmt_list_value_ok:
 
@@ -3223,6 +3225,14 @@ Lexpr_maybe_otherwise:
     b.eq Lexpr_otherwise_use_rhs
     cmp x20, #16
     b.lt Lexpr_loop
+    sub x9, x20, #16
+    cmp x2, x9
+    b.ne Lexpr_type_mismatch
+    cmp x9, #6
+    b.ne Lexpr_otherwise_nullable_ok
+    cmp x3, x21
+    b.ne Lexpr_type_mismatch
+Lexpr_otherwise_nullable_ok:
     cmp x19, #-1
     b.eq Lexpr_otherwise_use_rhs
     sub x20, x20, #16
@@ -4837,22 +4847,45 @@ Lfn_def_param_done:
     mov x11, x1 // default value
     mov x12, x2 // default type
     mov x13, x3 // default length
+    mov x9, x21
+    lsl x9, x9, #2
+    add x9, x9, x22
+    LOAD_ADDR x10, fn_param_lengths
+    ldr x14, [x10, x9, lsl #3]
+    cmp x25, #16
+    b.ge Lfn_def_param_default_nullable
     cmp x12, x25
     b.eq Lfn_def_param_default_type_ok
     cmp x25, #3
     b.ne Lfn_def_fail
     cmp x12, #0
     b.ne Lfn_def_fail
+    b Lfn_def_param_default_type_ok
+Lfn_def_param_default_nullable:
+    cmp x12, #7
+    b.eq Lfn_def_param_default_type_ok
+    cmp x12, x25
+    b.eq Lfn_def_param_default_type_ok
+    sub x15, x25, #16
+    cmp x15, #3
+    b.ne Lfn_def_param_default_nullable_exact
+    cmp x12, #0
+    b.eq Lfn_def_param_default_type_ok
+Lfn_def_param_default_nullable_exact:
+    cmp x12, x15
+    b.ne Lfn_def_fail
 Lfn_def_param_default_type_ok:
     cmp x25, #6
+    b.eq Lfn_def_param_default_check_scale
+    cmp x25, #22
     b.ne Lfn_def_param_default_store
-    cmp x13, x24
+    cmp x12, #7
+    b.eq Lfn_def_param_default_store
+Lfn_def_param_default_check_scale:
+    cmp x13, x14
     b.ne Lfn_def_fail
 Lfn_def_param_default_store:
     cbnz x26, Lfn_def_param_next
-    mov x9, x21
-    lsl x9, x9, #2
-    add x9, x9, x22
     LOAD_ADDR x10, fn_param_default_flags
     mov x14, #1
     str x14, [x10, x9, lsl #3]
@@ -5132,9 +5165,16 @@ Lfn_call_check_nullable_exact:
 
 Lfn_call_define_arg:
     cmp x27, #6
+    b.eq Lfn_call_check_decimal_arg_len
+    cmp x27, #22
     b.ne Lfn_call_define_arg_len_ok
+    cmp x6, #7
+    b.eq Lfn_call_define_arg_use_decl_len
+Lfn_call_check_decimal_arg_len:
     cmp x7, x5
     b.ne Lfn_call_fail
+Lfn_call_define_arg_use_decl_len:
+    mov x7, x5
 Lfn_call_define_arg_len_ok:
     mov x0, x25
     mov x1, x26
@@ -5194,10 +5234,23 @@ Lfn_call_fill_defaults:
     ldr x26, [x10, x9, lsl #3]
     LOAD_ADDR x10, fn_param_types
     ldr x27, [x10, x9, lsl #3]
+    LOAD_ADDR x10, fn_param_lengths
+    ldr x6, [x10, x9, lsl #3]
     LOAD_ADDR x10, fn_param_default_values
     ldr x28, [x10, x9, lsl #3]
+    LOAD_ADDR x10, fn_param_default_types
+    ldr x7, [x10, x9, lsl #3]
     LOAD_ADDR x10, fn_param_default_lengths
     ldr x5, [x10, x9, lsl #3]
+    cmp x27, #6
+    b.eq Lfn_call_default_use_decl_len
+    cmp x27, #22
+    b.ne Lfn_call_default_len_ready
+    cmp x7, #7
+    b.ne Lfn_call_default_use_decl_len
+Lfn_call_default_use_decl_len:
+    mov x5, x6
+Lfn_call_default_len_ready:
     mov x0, x25
     mov x1, x26
     mov x2, x28

@@ -1,0 +1,11 @@
+fn maybePrice(bool useNone) -> dec(2)? {
+    if (useNone) {
+        return none
+    }
+    return 19.99
+}
+
+fn main() {
+    dec(2)? price = maybePrice(false)
+    price = maybePrice(true)
+}

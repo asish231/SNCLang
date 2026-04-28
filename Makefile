@@ -85,6 +85,12 @@ test: $(SNC) | $(TMPDIR)
 	./$(SNC) examples/nullable_basic.sn > $(TMPDIR)/snc_nullable_basic.s
 	$(CC) $(TMPDIR)/snc_nullable_basic.s -o $(TMPDIR)/snc_nullable_basic$(EXEEXT)
 	./$(TMPDIR)/snc_nullable_basic$(EXEEXT)
+	./$(SNC) examples/nullable_list_direct.sn > $(TMPDIR)/snc_nullable_list_direct.s
+	$(CC) $(TMPDIR)/snc_nullable_list_direct.s -o $(TMPDIR)/snc_nullable_list_direct$(EXEEXT)
+	./$(TMPDIR)/snc_nullable_list_direct$(EXEEXT)
+	./$(SNC) examples/nullable_decimal.sn > $(TMPDIR)/snc_nullable_decimal.s
+	$(CC) $(TMPDIR)/snc_nullable_decimal.s -o $(TMPDIR)/snc_nullable_decimal$(EXEEXT)
+	./$(TMPDIR)/snc_nullable_decimal$(EXEEXT)
 	./$(SNC) examples/nullable_functions.sn > $(TMPDIR)/snc_nullable_functions.s
 	$(CC) $(TMPDIR)/snc_nullable_functions.s -o $(TMPDIR)/snc_nullable_functions$(EXEEXT)
 	./$(TMPDIR)/snc_nullable_functions$(EXEEXT)

@@ -31,11 +31,11 @@ This document converts the full-system checklist into a concrete status board fo
 
 - Primitive types (`int`, `bool`, `byte`, `str`, `dec`): DONE
 - Typed assignment validation: IN_PROGRESS
-- Null model (`none`, nullable `?`, `otherwise`): DONE
+- Null model (`none`, nullable `?`, `otherwise`): IN_PROGRESS
 - `list<T>` core behavior: IN_PROGRESS
 - `map<K,V>`: MISSING
 - Multi-return values: MISSING
-- Default parameters: MISSING
+- Default parameters: IN_PROGRESS
 
 ## 4) Language Feature Completeness
 
