@@ -18,6 +18,7 @@
 .global msg_const_assign
 .global msg_expected_type
 .global msg_expected_list
+.global msg_expected_map
 .global msg_type_mismatch
 .global msg_invalid_decimal
 .global msg_decimal_scale
@@ -53,6 +54,9 @@
 .global kw_default
 .global kw_use
 .global kw_list
+.global kw_map
+.global kw_length
+.global kw_add
 .global kw_for
 .global kw_stop
 .global kw_skip
@@ -61,9 +65,18 @@
 .global kw_return
 .global kw_none
 .global kw_otherwise
+.global kw_file_read
+.global kw_file_write
 .global asm_header
 .global asm_sub_sp_prefix
 .global asm_close_bracket
+.global asm_load_x0_print_val_adrp
+.global asm_load_x0_print_val_add
+.global asm_load_x1_print_val_adrp
+.global asm_load_x1_print_val_add
+.global asm_load_x0_var
+.global asm_load_x1_var
+.global asm_store_x0_var
 .global asm_print_call_suffix_stack
 .global asm_print_fmt_adrp
 .global asm_print_val_adrp
@@ -143,6 +156,9 @@
 .global asm_add_x11_imm
 .global asm_sub_x11_imm
 .global asm_call_write
+.global asm_call_str_concat
+.global asm_call_file_read
+.global asm_call_file_write
 .global asm_call_read
 .global asm_input_prompt_prefix
 .global asm_input_buffer_prefix
@@ -190,6 +206,10 @@
 .global list_pool_count
 .global list_pool_values
 .global list_pool_lengths
+.global map_pool_count
+.global map_pool_keys
+.global map_pool_values
+.global map_pool_lengths
 .global print_values
 .global print_lengths
 .global print_types
@@ -217,6 +237,8 @@
 .global fn_return_value
 .global fn_return_length
 .global fn_return_flag
+.global fn_return_extra
+.global fn_return_extra_type
 .global fn_exec_depth
 .global var_scope_base
 .global max_var_count
@@ -240,6 +262,7 @@ msg_divide_zero:   .asciz "error: division by zero on "
 msg_const_assign:  .asciz "error: cannot assign to const on "
 msg_expected_type: .asciz "error: expected type on "
 msg_expected_list: .asciz "error: expected list on "
+msg_expected_map:  .asciz "error: expected map on "
 msg_type_mismatch: .asciz "error: type mismatch on "
 msg_invalid_decimal: .asciz "error: invalid decimal literal on "
 msg_decimal_scale: .asciz "error: decimal scale mismatch on "
@@ -275,6 +298,9 @@ kw_match:          .asciz "match"
 kw_default:        .asciz "default"
 kw_use:            .asciz "use"
 kw_list:           .asciz "list"
+kw_map:            .asciz "map"
+kw_length:         .asciz "length"
+kw_add:            .asciz "add"
 kw_for:            .asciz "for"
 kw_stop:           .asciz "stop"
 kw_skip:           .asciz "skip"
@@ -283,13 +309,15 @@ kw_input:          .asciz "input"
 kw_return:         .asciz "return"
 kw_none:           .asciz "none"
 kw_otherwise:      .asciz "otherwise"
+kw_file_read:      .asciz "file_read"
+kw_file_write:     .asciz "file_write"
 asm_sub_sp_prefix:
     .asciz "    sub sp, sp, #"
 asm_header:
 #ifdef _WIN32
-    .asciz ".global main\n.align 4\n.extern printf\n.extern read\n.extern write\n\n.text\nmain:\n    stp x29, x30, [sp, #-16]!\n    mov x29, sp\n"
+    .asciz ".global main\n.align 4\n.extern printf\n.extern read\n.extern write\n.extern malloc\n.extern free\n.extern str_concat\n.extern file_read\n.extern file_write\n\n.text\nmain:\n    stp x29, x30, [sp, #-16]!\n    mov x29, sp\n"
 #else
-    .asciz ".global _main\n.align 4\n.extern _printf\n.extern _read\n.extern _write\n\n.text\n_main:\n    stp x29, x30, [sp, #-16]!\n    mov x29, sp\n"
+    .asciz ".global _main\n.align 4\n.extern _printf\n.extern _read\n.extern _write\n.extern _malloc\n.extern _free\n.extern _str_concat\n.extern _file_read\n.extern _file_write\n\n.text\n_main:\n    stp x29, x30, [sp, #-16]!\n    mov x29, sp\n"
 #endif
 asm_print_fmt_int_adrp:
 #ifdef _WIN32
@@ -377,6 +405,28 @@ asm_store_var_suffix:
 #endif
 asm_close_bracket:
     .asciz "]\n"
+asm_load_x0_print_val_adrp:
+    .asciz "    adrp x0, print_val_"
+asm_load_x0_print_val_add:
+#ifdef _WIN32
+    .asciz "\n    add x0, x0, :lo12:print_val_"
+#else
+    .asciz "@PAGE\n    add x0, x0, print_val_"
+#endif
+asm_load_x1_print_val_adrp:
+    .asciz "    adrp x1, print_val_"
+asm_load_x1_print_val_add:
+#ifdef _WIN32
+    .asciz "\n    add x1, x1, :lo12:print_val_"
+#else
+    .asciz "@PAGE\n    add x1, x1, print_val_"
+#endif
+asm_load_x0_var:
+    .asciz "    ldur x0, [x29, #-"
+asm_load_x1_var:
+    .asciz "    ldur x1, [x29, #-"
+asm_store_x0_var:
+    .asciz "    stur x0, [x29, #-"
 asm_print_var_adrp:
     .asciz "    adrp x9, var_slot_"
 asm_print_var_ldr:
@@ -517,6 +567,24 @@ asm_call_write:
 #else
     .asciz "    bl _write\n"
 #endif
+asm_call_str_concat:
+#ifdef _WIN32
+    .asciz "    bl str_concat\n"
+#else
+    .asciz "    bl _str_concat\n"
+#endif
+asm_call_file_read:
+#ifdef _WIN32
+    .asciz "    bl file_read\n"
+#else
+    .asciz "    bl _file_read\n"
+#endif
+asm_call_file_write:
+#ifdef _WIN32
+    .asciz "    bl file_write\n"
+#else
+    .asciz "    bl _file_write\n"
+#endif
 asm_call_read:
 #ifdef _WIN32
     .asciz "    bl read\n"
@@ -593,6 +661,10 @@ var_types:       .space 4096
 list_pool_count: .space 8
 list_pool_values: .space 32768     // 4096 list elements
 list_pool_lengths: .space 32768
+map_pool_count:  .space 8
+map_pool_keys:   .space 32768
+map_pool_values: .space 32768
+map_pool_lengths: .space 32768
 print_values:   .space 16384       // 2048 prints
 print_lengths:  .space 16384
 print_types:    .space 16384
@@ -620,6 +692,8 @@ fn_return_decl_lengths: .space 512
 fn_return_value: .space 8
 fn_return_length: .space 8
 fn_return_flag:  .space 8
+fn_return_extra: .space 8
+fn_return_extra_type: .space 8
 fn_exec_depth:   .space 8
 var_scope_base: .space 8
 max_var_count:  .space 8

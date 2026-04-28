@@ -1,0 +1,12 @@
+fn main() {
+    list<bool> flags = [true, false, true]
+    for (f in flags) {
+        print(f)
+    }
+
+    print(flags.length())
+
+    map<str, int> ages = {"Alice": 25, "Bob": 30}
+    print(ages["Alice"])
+    print(ages["Bob"])
+}

@@ -332,3 +332,192 @@ _get_next_label:
     add x1, x0, #1
     str x1, [x9]
     ret
+
+.extern _malloc
+.extern _free
+.extern _open
+.extern _read
+.extern _write
+.extern _close
+.extern _lseek
+
+.global _file_read
+_file_read:
+    stp x29, x30, [sp, #-16]!
+    mov x29, sp
+    stp x19, x20, [sp, #-16]!
+    stp x21, x22, [sp, #-16]!
+
+    mov x19, x0 // path
+    
+    // Open file
+    mov x0, x19
+    mov x1, #0 // O_RDONLY
+    bl _open
+    cmp x0, #0
+    b.lt Lfile_read_fail
+    mov x20, x0 // fd
+
+    // Get size
+    mov x0, x20
+    mov x1, #0
+    mov x2, #2 // SEEK_END
+    bl _lseek
+    mov x21, x0 // size
+
+    // Seek back to start
+    mov x0, x20
+    mov x1, #0
+    mov x2, #0 // SEEK_SET
+    bl _lseek
+
+    // Allocate size + 1
+    add x0, x21, #1
+    bl _malloc
+    cbz x0, Lfile_read_alloc_fail
+    mov x22, x0 // buffer
+
+    // Read
+    mov x0, x20
+    mov x1, x22
+    mov x2, x21
+    bl _read
+    
+    // Null terminate
+    strb wzr, [x22, x21]
+
+    // Close
+    mov x0, x20
+    bl _close
+
+    mov x0, x22
+    b Lfile_read_return
+
+Lfile_read_alloc_fail:
+    mov x0, x20
+    bl _close
+Lfile_read_fail:
+    mov x0, #0
+
+Lfile_read_return:
+    ldp x21, x22, [sp], #16
+    ldp x19, x20, [sp], #16
+    ldp x29, x30, [sp], #16
+    ret
+
+.global _file_write
+_file_write:
+    stp x29, x30, [sp, #-16]!
+    mov x29, sp
+    stp x19, x20, [sp, #-16]!
+    stp x21, x22, [sp, #-16]!
+
+    mov x19, x0 // path
+    mov x20, x1 // data
+
+    // Get length of data
+    mov x0, x20
+    bl _cstring_length
+    mov x21, x0
+
+    // Open for write (O_WRONLY | O_CREAT | O_TRUNC)
+    // Flags differ by platform, but 0x601 is often O_WRONLY|O_CREAT|O_TRUNC on macOS/Linux
+    // Let's use 0x601 for now, or check platform.inc
+    mov x0, x19
+#ifdef _WIN32
+    mov x1, #0x0301 // _O_WRONLY | _O_CREAT | _O_TRUNC
+#else
+    mov x1, #0x601  // O_WRONLY | O_CREAT | O_TRUNC
+#endif
+    mov x2, #0644 // mode
+    bl _open
+    cmp x0, #0
+    b.lt Lfile_write_fail
+    mov x22, x0 // fd
+
+    // Write
+    mov x0, x22
+    mov x1, x20
+    mov x2, x21
+    bl _write
+    
+    // Close
+    mov x0, x22
+    bl _close
+    
+    mov x0, #1
+    b Lfile_write_return
+
+Lfile_write_fail:
+    mov x0, #0
+
+Lfile_write_return:
+    ldp x21, x22, [sp], #16
+    ldp x19, x20, [sp], #16
+    ldp x29, x30, [sp], #16
+    ret
+
+.global _str_concat
+_str_concat:
+    stp x29, x30, [sp, #-16]!
+    mov x29, sp
+    stp x19, x20, [sp, #-16]!
+    stp x21, x22, [sp, #-16]!
+    stp x23, x24, [sp, #-16]!
+
+    mov x19, x0 // s1
+    mov x20, x1 // s2
+
+    // Get length of s1
+    mov x0, x19
+    bl _cstring_length
+    mov x21, x0
+
+    // Get length of s2
+    mov x0, x20
+    bl _cstring_length
+    mov x22, x0
+
+    // Allocate len1 + len2 + 1
+    add x0, x21, x22
+    add x0, x0, #1
+    bl _malloc
+    cbz x0, Lstr_concat_fail
+    mov x23, x0 // result ptr
+
+    // Copy s1
+    mov x24, #0
+Lstr_concat_copy1:
+    cmp x24, x21
+    b.ge Lstr_concat_copy2_start
+    ldrb w9, [x19, x24]
+    strb w9, [x23, x24]
+    add x24, x24, #1
+    b Lstr_concat_copy1
+
+Lstr_concat_copy2_start:
+    mov x9, #0
+Lstr_concat_copy2:
+    cmp x9, x22
+    b.ge Lstr_concat_done
+    ldrb w10, [x20, x9]
+    add x11, x24, x9
+    strb w10, [x23, x11]
+    add x9, x9, #1
+    b Lstr_concat_copy2
+
+Lstr_concat_done:
+    add x11, x24, x22
+    strb wzr, [x23, x11]
+    mov x0, x23
+    b Lstr_concat_return
+
+Lstr_concat_fail:
+    mov x0, #0
+
+Lstr_concat_return:
+    ldp x23, x24, [sp], #16
+    ldp x21, x22, [sp], #16
+    ldp x19, x20, [sp], #16
+    ldp x29, x30, [sp], #16
+    ret
