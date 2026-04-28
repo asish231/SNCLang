@@ -5590,16 +5590,51 @@ Lfn_def_count_done:
 
     // Parse return type
     bl _skip_whitespace
+    bl _peek_char
+    cmp w0, #'('
+    b.eq Lfn_def_tuple_return
     bl _parse_type_spec
     cbz x0, Lfn_def_fail
     mov x25, x1
     mov x24, x2
+    mov x11, #-1
+    mov x12, #0
+    b Lfn_def_store_ret
+
+Lfn_def_tuple_return:
+    bl _advance_char
+    bl _skip_whitespace
+    bl _parse_type_spec
+    cbz x0, Lfn_def_fail
+    mov x11, x1
+    mov x12, x2
+    bl _skip_whitespace
+    mov w0, #','
+    bl _expect_char
+    cbz x0, Lfn_def_fail
+    bl _skip_whitespace
+    bl _parse_type_spec
+    cbz x0, Lfn_def_fail
+    mov x13, x1
+    mov x14, x2
+    bl _skip_whitespace
+    mov w0, #')'
+    bl _expect_char
+    cbz x0, Lfn_def_fail
+    mov x25, x11
+    mov x24, x12
+    mov x11, x13
+    mov x12, x14
 Lfn_def_store_ret:
     cbnz x26, Lfn_def_expect_body
     LOAD_ADDR x9, fn_return_types
     str x25, [x9, x21, lsl #3]
     LOAD_ADDR x9, fn_return_decl_lengths
     str x24, [x9, x21, lsl #3]
+    LOAD_ADDR x9, fn_return_extra_types
+    str x11, [x9, x21, lsl #3]
+    LOAD_ADDR x9, fn_return_extra_decl_lengths
+    str x12, [x9, x21, lsl #3]
     b Lfn_def_expect_body
 
 Lfn_def_no_return_type:
@@ -5609,6 +5644,10 @@ Lfn_def_no_return_type:
     LOAD_ADDR x9, fn_return_types
     str x25, [x9, x21, lsl #3]
     LOAD_ADDR x9, fn_return_decl_lengths
+    str xzr, [x9, x21, lsl #3]
+    LOAD_ADDR x9, fn_return_extra_types
+    str x25, [x9, x21, lsl #3]
+    LOAD_ADDR x9, fn_return_extra_decl_lengths
     str xzr, [x9, x21, lsl #3]
 
 Lfn_def_expect_body:

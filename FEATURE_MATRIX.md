@@ -28,7 +28,10 @@ the repo", not "fully validated end-to-end on a real ARM64 toolchain".
 | `input("prompt")` | Yes | No | Partial | First-cut source support added for string declarations/assignments; still needs real ARM64 validation. |
 | functions with params and returns | Yes | README says planned | Partial | Source path exists, docs are out of sync. |
 | `list<T>` | Yes | README says planned | Partial | Parser/storage path exists; full semantics still need work. |
-| `map<K,V>` | Yes | README says planned | No clear source path | Not yet implemented in a meaningful way. |
+| `map<K,V>` | Yes | README says planned | Partial | Parser/runtime path exists; needs end-to-end validation and broader coverage. |
+| multiple return values | Yes | README says planned | Partial | Tuple return/unpack source path exists; needs stronger type validation and runtime coverage. |
+| string concatenation | Yes | README says planned | Partial | Source path exists via runtime concat helper; needs ARM64 validation and more edge-case coverage. |
+| file I/O built-ins | Yes | README says planned | Partial | `file_read(...)` and `file_write(...)` source paths exist; needs platform validation. |
 | `use module.path` | Yes | Yes | Partial | Parse path exists; real module behavior still needs validation. |
 | blueprints / contracts / OOP | Yes | README says planned | No | Deferred. |
 | pointers / allocation / concurrency | Yes | README says planned | No | Deferred. |

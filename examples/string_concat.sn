@@ -1,0 +1,5 @@
+fn main() {
+    str left = "Hello, "
+    str joined = left + "SNlang"
+    print(joined)
+}

@@ -234,6 +234,8 @@
 .global fn_param_default_lengths
 .global fn_return_types
 .global fn_return_decl_lengths
+.global fn_return_extra_types
+.global fn_return_extra_decl_lengths
 .global fn_return_value
 .global fn_return_length
 .global fn_return_flag
@@ -689,6 +691,8 @@ fn_param_default_values: .space 2048
 fn_param_default_types: .space 2048
 fn_param_default_lengths: .space 2048
 fn_return_decl_lengths: .space 512
+fn_return_extra_types: .space 512
+fn_return_extra_decl_lengths: .space 512
 fn_return_value: .space 8
 fn_return_length: .space 8
 fn_return_flag:  .space 8

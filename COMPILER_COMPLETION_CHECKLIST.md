@@ -22,7 +22,7 @@ This document converts the full-system checklist into a concrete status board fo
 ## 2) Runtime Core
 
 - Runtime control flow (`if/else`, loops, match): DONE
-- Function calls/returns/locals: DONE (single-return model)
+- Function calls/returns/locals: IN_PROGRESS
 - Calling convention compliance (current backend): IN_PROGRESS
 - Stack frame contract documentation: IN_PROGRESS
 - Runtime data model for advanced aggregates: IN_PROGRESS
@@ -33,14 +33,15 @@ This document converts the full-system checklist into a concrete status board fo
 - Typed assignment validation: IN_PROGRESS
 - Null model (`none`, nullable `?`, `otherwise`): IN_PROGRESS
 - `list<T>` core behavior: IN_PROGRESS
-- `map<K,V>`: MISSING
-- Multi-return values: MISSING
+- `map<K,V>`: IN_PROGRESS
+- Multi-return values: IN_PROGRESS
 - Default parameters: IN_PROGRESS
 
 ## 4) Language Feature Completeness
 
 - Strings (basic literal/print/pass-through): DONE
-- String operators/helpers (concat/helpers/interpolation): MISSING
+- String operators/helpers (concat/helpers/interpolation): IN_PROGRESS
+- File I/O built-ins: IN_PROGRESS
 - Lists (indexing/mutation/bounds): MISSING
 - Modules (`use` runtime behavior): MISSING
 - Object model (`blueprint`, `object`, contracts, access): MISSING

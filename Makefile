@@ -49,6 +49,9 @@ test: $(SNC) | $(TMPDIR)
 	./$(SNC) examples/strings.sn > $(TMPDIR)/snc_strings.s
 	$(CC) $(TMPDIR)/snc_strings.s -o $(TMPDIR)/snc_strings$(EXEEXT)
 	$(TMPDIR)/snc_strings$(EXEEXT)
+	./$(SNC) examples/string_concat.sn > $(TMPDIR)/snc_string_concat.s
+	$(CC) $(TMPDIR)/snc_string_concat.s -o $(TMPDIR)/snc_string_concat$(EXEEXT)
+	$(TMPDIR)/snc_string_concat$(EXEEXT)
 	./$(SNC) examples/else_if.sn > $(TMPDIR)/snc_else_if.s
 	$(CC) $(TMPDIR)/snc_else_if.s -o $(TMPDIR)/snc_else_if$(EXEEXT)
 	$(TMPDIR)/snc_else_if$(EXEEXT)
@@ -76,6 +79,9 @@ test: $(SNC) | $(TMPDIR)
 	./$(SNC) examples/functions.sn > $(TMPDIR)/snc_functions.s
 	$(CC) $(TMPDIR)/snc_functions.s -o $(TMPDIR)/snc_functions$(EXEEXT)
 	$(TMPDIR)/snc_functions$(EXEEXT)
+	./$(SNC) examples/multi_return.sn > $(TMPDIR)/snc_multi_return.s
+	$(CC) $(TMPDIR)/snc_multi_return.s -o $(TMPDIR)/snc_multi_return$(EXEEXT)
+	$(TMPDIR)/snc_multi_return$(EXEEXT)
 	./$(SNC) examples/list_exprs.sn > $(TMPDIR)/snc_list_exprs.s
 	$(CC) $(TMPDIR)/snc_list_exprs.s -o $(TMPDIR)/snc_list_exprs$(EXEEXT)
 	$(TMPDIR)/snc_list_exprs$(EXEEXT)
@@ -100,6 +106,12 @@ test: $(SNC) | $(TMPDIR)
 	./$(SNC) examples/default_params.sn > $(TMPDIR)/snc_default_params.s
 	$(CC) $(TMPDIR)/snc_default_params.s -o $(TMPDIR)/snc_default_params$(EXEEXT)
 	$(TMPDIR)/snc_default_params$(EXEEXT)
+	./$(SNC) examples/batch2_verify.sn > $(TMPDIR)/snc_batch2_verify.s
+	$(CC) $(TMPDIR)/snc_batch2_verify.s -o $(TMPDIR)/snc_batch2_verify$(EXEEXT)
+	$(TMPDIR)/snc_batch2_verify$(EXEEXT)
+	./$(SNC) examples/file_io.sn > $(TMPDIR)/snc_file_io.s
+	$(CC) $(TMPDIR)/snc_file_io.s -o $(TMPDIR)/snc_file_io$(EXEEXT)
+	$(TMPDIR)/snc_file_io$(EXEEXT)
 	./$(SNC) examples/otherwise.sn > $(TMPDIR)/snc_otherwise.s
 	$(CC) $(TMPDIR)/snc_otherwise.s -o $(TMPDIR)/snc_otherwise$(EXEEXT)
 	$(TMPDIR)/snc_otherwise$(EXEEXT)
