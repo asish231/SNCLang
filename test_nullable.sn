@@ -1,0 +1,20 @@
+fn main() {
+    int? maybeInt = none
+    if (maybeInt == none) {
+        print("maybeInt is correctly none")
+    }
+
+    maybeInt = 42
+    if (maybeInt != none) {
+        print("maybeInt is now 42")
+        print(maybeInt)
+    }
+
+    str? maybeStr = "Hello Nullable"
+    print(maybeStr)
+    
+    maybeStr = none
+    if (maybeStr == none) {
+        print("maybeStr is now none")
+    }
+}

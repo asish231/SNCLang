@@ -1,0 +1,10 @@
+fn main() {
+    int i = 0
+    print("Starting loop...")
+    while (i < 5) {
+        print("Iteration:")
+        print(i)
+        i = i + 1
+    }
+    print("Loop done!")
+}
