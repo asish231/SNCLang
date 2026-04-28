@@ -1,6 +1,6 @@
 # snc
 
-`snc` is a tiny programming language compiler written in ARM64 assembly.
+`snc` is a small programming language compiler written in ARM64 assembly.
 
 It reads `.sn` source code and emits ARM64 assembly that can be assembled with `clang`.
 
@@ -27,11 +27,28 @@ The compiler is split by responsibility:
 
 The old single-file version is archived at `archive/snc.monolith.s`.
 
-Code generation currently emits runtime `printf` calls for integer output. Most
-expressions are still evaluated by the compiler before emission. Integer and
-boolean variables now have runtime slots in emitted programs for declarations,
-assignments, direct `print(var)` loads, and simple runtime arithmetic of the form
-`print(x + 2)` and `x = x + 3`.
+## What SNlang Is Right Now
+
+Today, SNlang is an early compiled language with a working core for:
+
+- typed variables and constants
+- arithmetic and comparisons
+- `if`, `while`, counted `for`, and `for in`
+- `stop` and `skip`
+- function definitions, parameters, returns, and forward calls
+- strings, booleans, bytes, and decimal values
+- `match`
+- partial `list<T>` support
+- `input("prompt")` for strings
+
+It is still in a stabilization phase. The language is no longer just a parser toy,
+but it is not yet a complete general-purpose language. Runtime behavior is getting
+stronger, while larger features like maps, nullable values, modules, OOP, pointers,
+and concurrency are still ahead.
+
+Code generation emits ARM64 assembly and uses runtime stack slots for variables.
+More behavior now runs through emitted code than before, especially around loops,
+assignments, function arguments, and decimal handling.
 
 For a conservative status view of spec vs README vs current source support, see
 `FEATURE_MATRIX.md`.
@@ -69,28 +86,37 @@ Supported today:
 - arithmetic with `+`, `-`, `*`, `/`, and `%`
 - parentheses for grouped expressions
 - comparisons with `==`, `!=`, `>`, `<`, `>=`, and `<=`
-- compile-time `if (...) { ... } else { ... }`
+- `if (...) { ... } else { ... }`
 - `else if (...) { ... }`
 - `while (...) { ... }`
+- counted `for (...) { ... }`
+- `for (item in list) { ... }`
+- `stop`
+- `skip`
 - `bool`, `true`, and `false`
 - `byte`
 - `str` string variables
 - `const str`
+- `dec(X)` declarations and decimal arithmetic paths
 - string literals in `print(...)`
 - `input("prompt")` for `str` declarations/assignments (first-cut runtime path)
 - `use module.path` syntax
-- `match (...) { ... default { ... } }` with compile-time execution
+- `match (...) { ... default { ... } }`
 - runtime slots for `int` / `bool` declarations and assignments
+- runtime slots for decimal values
 - runtime `print(var)` loads for `int` / `bool`
 - runtime arithmetic for `print(var op number)` where `op` is `+ - * / %`
 - runtime arithmetic for `x = x op number` where `op` is `+ - * / %`
 - runtime arithmetic for `print(var op var)` where `op` is `+ - * / %`
 - runtime arithmetic for `x = x op var` where `op` is `+ - * / %`
 - runtime target assignments like `out = x + y` and `out = x + 7`
+- compound assignments `+=`, `-=`, `*=`, `/=`, and `%=` for supported types
 - exponent with `**`
 - `const int` and `const bool`
 - reassignment with `=`
-- assignment shortcuts with `+=`, `-=`, `*=`, and `/=`
+- functions with parameters and return values
+- nested and forward function calls
+- partial `list<T>` literals and `for in` iteration
 - logical `and`, `or`, and `not`
 - `// line comments`
 - `/* block comments */`
@@ -98,18 +124,71 @@ Supported today:
 Still planned from `SNLANG_SPEC.md`:
 
 - string concatenation
-- `dec`, `byte`
-- full runtime expression evaluation
-- runtime code generation for `if` / `else`
+- fuller runtime expression evaluation across more type combinations
 - richer logical precedence
-- `for`
-- `for in`
-- `stop` / `skip`
-- functions with parameters and returns
-- lists/maps
+- full `list<T>` semantics
+- `map<K,V>`
+- `none`, nullable types, and `otherwise`
+- multiple return values
 - blueprints/contracts/OOP
-- modules/imports
+- real module loading and imports
 - pointers, allocation, and concurrency
+
+## How To Use It
+
+Write a `.sn` file, then run `snc` to emit ARM64 assembly.
+
+Example:
+
+```sn
+fn main() {
+    int total = 0
+
+    for (i in [1, 2, 3, 4, 5]) {
+        if (i == 3) {
+            skip
+        }
+        if (i == 5) {
+            stop
+        }
+        total += i
+    }
+
+    print(total)
+}
+```
+
+Compile it to assembly:
+
+```sh
+./snc your_file.sn > out.s
+```
+
+Then assemble and link it with `clang` on an ARM64-capable setup:
+
+```sh
+clang out.s -o out
+./out
+```
+
+You can also use the example programs in `examples/` to probe features that already
+exist, including:
+
+- `examples/functions.sn`
+- `examples/for_loop.sn`
+- `examples/for_in_control.sn`
+- `examples/function_scope_shadowing.sn`
+- `examples/decimals.sn`
+- `examples/test_combined.sn`
+
+## Current Reality
+
+The best way to think about SNlang right now is:
+
+- it is a real compiler project with a working language core
+- it supports meaningful control flow and function behavior
+- it is still evolving quickly, especially around runtime semantics and decimals
+- some features are implemented enough to use, but not yet fully hardened
 
 ## Commands
 
