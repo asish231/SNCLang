@@ -605,7 +605,8 @@ Lstmt_str_name:
     cmp x2, #7
     b.ne Lstmt_fail
 Lstmt_str_value_ok:
-    mov x21, x1 // ptr
+    mov x24, x4 // source var id (or -1 if immediate)
+    mov x21, x1 // ptr/value
     mov x22, x3 // len
 
     bl _consume_optional_semicolon
@@ -618,6 +619,39 @@ Lstmt_str_value_ok:
     mov x5, x22
     bl _define_variable
     cbnz x0, Lstmt_fail
+
+    // Emit runtime store into stack slot.
+    mov x0, x19
+    mov x1, x20
+    bl _lookup_variable
+    cbz x0, Lstmt_fail
+    mov x26, x4 // dest var idx
+
+    cmp x24, #-1
+    b.ne Lstmt_str_store_from_var
+    // Immediate string: intern into print/data table then store its address.
+    mov x0, x21
+    mov x1, #2
+    mov x2, x22
+    bl _record_data_value
+    mov x21, x0 // print/data id
+    mov x0, #72
+    mov x1, x26
+    mov x2, x21
+    mov x3, #0
+    bl _record_operation3
+    cbnz x0, Lstmt_fail
+    b Lstmt_str_store_done
+
+Lstmt_str_store_from_var:
+    // Source is another var/temp: store var->var.
+    mov x0, #45
+    mov x1, x26
+    mov x2, x24
+    bl _record_operation
+    cbnz x0, Lstmt_fail
+
+Lstmt_str_store_done:
 
     mov x0, #0
     b Lstmt_return
@@ -897,7 +931,7 @@ Lstmt_const_str:
     cmp x2, #2
     b.ne Lstmt_fail
     mov x21, x1
-    mov x24, x3
+    mov x24, x4
     b Lstmt_const_store
 
 Lstmt_const_dec:
@@ -1271,6 +1305,9 @@ Lstmt_return_void:
 Lstmt_assign:
     bl _skip_whitespace
     bl _peek_char
+    // Tuple assignment: a, b = expr
+    cmp w0, #','
+    b.eq Lstmt_tuple_assign
     cmp w0, #'='
     b.eq Lstmt_assign_set
     cmp w0, #'+'
@@ -1286,6 +1323,52 @@ Lstmt_assign:
     cmp w0, #'('
     b.eq Lstmt_fn_call
     b Lstmt_unknown
+
+Lstmt_tuple_assign:
+    // x19=name ptr, x20=name len (first var) already set by identifier parse
+    bl _advance_char
+    bl _skip_whitespace
+    bl _parse_identifier
+    cbz x0, Lstmt_fail
+    mov x23, x0 // second var name ptr
+    mov x24, x1 // second var name len
+
+    bl _skip_whitespace
+    mov w0, #'='
+    bl _expect_char
+    cbz x0, Lstmt_fail
+
+    bl _parse_expr_value
+    cbz x0, Lstmt_fail
+    mov x21, x1 // expr value
+    mov x22, x2 // expr type
+    mov x25, x3 // expr length
+
+    // Store first value (typed)
+    mov x0, x19
+    mov x1, x20
+    mov x2, x21
+    mov x3, x22
+    mov x4, x25
+    bl _set_variable_full
+    cbnz x0, Lstmt_fail
+
+    // Store second return value from fn_return_extra (typed)
+    LOAD_ADDR x9, fn_return_extra
+    ldr x21, [x9]
+    LOAD_ADDR x9, fn_return_extra_type
+    ldr x22, [x9]
+    mov x0, x23
+    mov x1, x24
+    mov x2, x21
+    mov x3, x22
+    mov x4, #0
+    bl _set_variable_full
+    cbnz x0, Lstmt_fail
+
+    bl _consume_optional_semicolon
+    mov x0, #0
+    b Lstmt_return
 
 Lstmt_fn_call:
     // x19=name ptr, x20=name len
@@ -1362,15 +1445,14 @@ Lstmt_assign_multi_restore:
     b Lstmt_fail
 
 Lstmt_assign_single_var:
-    bl _try_parse_input_call
-    cbnz x0, Lstmt_assign_input
     bl _try_parse_runtime_var_bin_expr
     cbnz x0, Lstmt_assign_runtime_expr
     bl _parse_expr_value
     cbz x0, Lstmt_fail
-    mov x21, x1
-    mov x22, x2
-    mov x24, x3
+    mov x21, x1  // source value
+    mov x22, x2  // source type
+    mov x24, x3  // source metadata/length
+    mov x28, x4  // source var id (-1 if immediate)
     b Lstmt_assign_store
 
 Lstmt_assign_input:
@@ -1736,7 +1818,6 @@ Lstmt_assign_divide_zero:
     b Lstmt_fail
 
 Lstmt_assign_store:
-    bl _consume_optional_semicolon
     mov x25, x21
     mov x0, x19
     mov x1, x20
@@ -1823,30 +1904,42 @@ Lstmt_assign_do_store:
     bl _record_store_variable
     cbnz x0, Lstmt_fail
 Lstmt_assign_store_done:
+    bl _consume_optional_semicolon
     mov x0, #0
     b Lstmt_return
 
 Lstmt_assign_do_store_full:
+    // x19,x20 = target name
+    // x23 = target type
+    // x24 = source metadata/length
+    // x25 = source value (immediate)
+    // x26 = target length/scale
+    // x28 = source var_id (temp var id or -1 if immediate)
+
+    // For string type, handle runtime store separately
+    cmp x23, #2
+    b.eq Lstmt_assign_str_full
+
     mov x0, x19
     mov x1, x20
-    mov x2, x25
-    mov x3, x23
-    mov x4, x24
+    mov x2, x25    // source value
+    mov x3, x23    // target type
+    mov x4, x26    // target length/scale
     bl _set_variable_full
     cbnz x0, Lstmt_fail
+
     mov x9, x23
     cmp x9, #16
     b.lt Lstmt_assign_do_store_full_base_ready
     sub x9, x9, #16
 Lstmt_assign_do_store_full_base_ready:
-    cmp x9, #2
-    b.eq Lstmt_assign_store_done
     cmp x9, #4
     b.eq Lstmt_assign_store_done
     cmp x9, #5
     b.eq Lstmt_assign_store_done
     cmp x9, #6
     b.eq Lstmt_assign_store_done
+    // Simple type: use _record_store_variable
     mov x0, x19
     mov x1, x20
     bl _lookup_variable
@@ -1855,6 +1948,53 @@ Lstmt_assign_do_store_full_base_ready:
     mov x1, x25
     bl _record_store_variable
     cbnz x0, Lstmt_fail
+    b Lstmt_assign_store_done
+
+Lstmt_assign_str_full:
+    // String assignment: set compile-time value then emit runtime store
+    // For immediate: x25=ptr, x24=length
+    // For runtime (concat): x28=temp var id
+    cmn x28, #1
+    b.eq Lstmt_assign_str_full_imm
+    // Runtime: just emit store_var_var (op 45)
+    mov x0, x19
+    mov x1, x20
+    bl _lookup_variable
+    cbz x0, Lstmt_fail
+    mov x26, x4    // dest var idx
+    mov x0, #45
+    mov x1, x26
+    mov x2, x28    // src = temp var id
+    bl _record_operation
+    b Lstmt_assign_store_done
+
+Lstmt_assign_str_full_imm:
+    // Immediate string: set compile-time value
+    // x25 = string ptr, x24 = length (saved from Lstmt_assign_single_var)
+    mov x0, x19
+    mov x1, x20
+    mov x2, x25    // string ptr
+    mov x3, #2     // type str
+    mov x4, x24    // length
+    bl _set_variable_full
+    cbnz x0, Lstmt_fail
+    // Emit op 72 to store string literal address
+    mov x0, x19
+    mov x1, x20
+    bl _lookup_variable
+    cbz x0, Lstmt_fail
+    mov x26, x4    // dest var idx
+    // Use x25 (saved ptr) and x24 (saved length)
+    mov x0, x25    // ptr
+    mov x1, #2
+    mov x2, x24    // length
+    bl _record_data_value
+    mov x21, x0    // data id
+    mov x0, #72
+    mov x1, x26
+    mov x2, x21
+    mov x3, #0
+    bl _record_operation3
     b Lstmt_assign_store_done
 
 Lstmt_unknown_var_assign:
@@ -3617,13 +3757,14 @@ Lexpr_add_str:
     b.ne Lexpr_add_str_runtime
     
     // Both are literals. Concatenate at compile-time.
-    mov x0, x19
-    mov x1, x21
-    mov x2, x1
+    mov x0, x19   // left ptr
+    mov x2, x1    // right ptr (save it before overwriting x1)
+    mov x1, x21   // left len
     // x3 is already right_len
     bl _str_concat_len
-    mov x19, x0
-    add x21, x21, x3
+    cbz x0, Lexpr_fail
+    mov x19, x0   // new heap ptr
+    add x21, x21, x3 // new length
     mov x20, #2
     mov x24, #-1
     b Lexpr_loop
@@ -3653,7 +3794,7 @@ Lexpr_add_str_runtime:
     mov x0, x19
     mov x1, #2
     mov x2, x21
-    bl _record_print_value
+    bl _record_data_value
     mov x19, x0 // print id
     ldr x4, [sp, #24]
     ldr x3, [sp, #16]
@@ -3670,7 +3811,7 @@ Lexpr_add_str_right:
     mov x0, x1
     mov x1, #2
     mov x2, x3
-    bl _record_print_value
+    bl _record_data_value
     mov x21, x0 // print id
     orr x25, x25, #2
     b Lexpr_add_str_emit
@@ -6172,7 +6313,7 @@ Lfn_call_file_read:
     mov x0, x19
     mov x1, #2
     mov x2, x21
-    bl _record_print_value
+    bl _record_data_value
     mov x19, x0 // print id
     mov x25, #1 // is_imm
     
@@ -6240,7 +6381,7 @@ Lfn_call_file_write:
     mov x0, x19
     mov x1, #2
     mov x2, x24
-    bl _record_print_value
+    bl _record_data_value
     mov x19, x0 // path print id
     ldr x23, [sp, #16]
     ldp x21, x22, [sp], #32
@@ -6254,7 +6395,7 @@ Lfile_write_check_data:
     mov x0, x21
     mov x1, #2
     mov x2, x23
-    bl _record_print_value
+    bl _record_data_value
     mov x21, x0 // data print id
     ldp x19, x20, [sp], #16
     orr x25, x25, #2

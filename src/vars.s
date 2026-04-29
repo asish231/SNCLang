@@ -6,6 +6,7 @@
  .global _lookup_variable
  .global _set_variable_full
  .global _record_print_value
+ .global _record_data_value
 .global _record_store_variable
 .global _record_print_variable
 .global _record_operation
@@ -348,6 +349,45 @@ _record_print_value:
     bl _record_operation_print_value
     mov x0, #0
     b Lrecord_print_return
+
+// Record a literal into the print/data table without emitting a print operation.
+// Returns id in x0 (same id space as print_value labels in emitted .data).
+_record_data_value:
+    stp x29, x30, [sp, #-16]!
+    mov x29, sp
+    stp x19, x20, [sp, #-16]!
+    stp x21, x22, [sp, #-16]!
+
+    mov x19, x0 // value
+    mov x21, x1 // type
+    mov x22, x2 // length
+    LOAD_ADDR x20, print_count
+    ldr x9, [x20]
+    cmp x9, #2048
+    b.ge Lrecord_data_full
+
+    LOAD_ADDR x10, print_values
+    str x19, [x10, x9, lsl #3]
+    LOAD_ADDR x10, print_types
+    str x21, [x10, x9, lsl #3]
+    LOAD_ADDR x10, print_lengths
+    str x22, [x10, x9, lsl #3]
+    mov x0, x9
+    add x9, x9, #1
+    str x9, [x20]
+    b Lrecord_data_return
+
+Lrecord_data_full:
+    LOAD_ADDR x0, msg_too_many_prints
+    mov x1, #2
+    bl _write_cstr_fd
+    mov x0, #-1
+
+Lrecord_data_return:
+    ldp x21, x22, [sp], #16
+    ldp x19, x20, [sp], #16
+    ldp x29, x30, [sp], #16
+    ret
 
 Lrecord_print_full:
     LOAD_ADDR x0, msg_too_many_prints

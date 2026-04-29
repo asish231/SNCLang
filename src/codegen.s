@@ -74,11 +74,16 @@ Lemit_store_data_begin:
 
 Lemit_store_data_loop:
     cmp x21, x20
-    b.ge Lemit_program_done
+    b.ge Lemit_emit_runtime_helpers
     mov x0, x21
     bl _emit_store_data
     add x21, x21, #1
     b Lemit_store_data_loop
+
+Lemit_emit_runtime_helpers:
+    LOAD_ADDR x0, asm_runtime_helpers
+    mov x1, #1
+    bl _write_cstr_fd
 
 Lemit_program_done:
     ldp x21, x22, [sp], #16
@@ -170,6 +175,8 @@ _emit_operation:
     b.eq Lemit_op_file_read
     cmp x21, #71
     b.eq Lemit_op_file_write
+    cmp x21, #72
+    b.eq Lemit_op_store_str_lit
 
     b Lemit_op_done
 
@@ -708,6 +715,43 @@ Lemit_op_store_var_var:
     LOAD_ADDR x0, asm_math_store_x11_str // "    stur x11, [x29, #-" -- wait, I need stur x10!
     // I should probably add asm_math_store_x10_str to data.s
     // Or just use asm_input_store_x10_str which is exactly what I need!
+    LOAD_ADDR x0, asm_input_store_x10_str
+    mov x1, #1
+    bl _write_cstr_fd
+    LOAD_ADDR x20, op_arg0
+    ldr x0, [x20, x19, lsl #3]
+    mov x1, #1
+    bl _write_stack_offset_fd
+    LOAD_ADDR x0, asm_close_bracket
+    mov x1, #1
+    bl _write_cstr_fd
+    b Lemit_op_done
+
+Lemit_op_store_str_lit:
+    // Store address of print_val_{id} into dest var slot.
+    // op_arg0: dest var idx, op_arg1: print/data id
+    LOAD_ADDR x0, asm_load_x0_print_val_prefix
+    mov x1, #1
+    bl _write_cstr_fd
+    LOAD_ADDR x20, op_arg1
+    ldr x0, [x20, x19, lsl #3]
+    mov x1, #1
+    bl _write_u64_fd
+    LOAD_ADDR x0, asm_load_x0_print_val_middle
+    mov x1, #1
+    bl _write_cstr_fd
+    LOAD_ADDR x20, op_arg1
+    ldr x0, [x20, x19, lsl #3]
+    mov x1, #1
+    bl _write_u64_fd
+    LOAD_ADDR x0, asm_load_x0_print_val_suffix
+    mov x1, #1
+    bl _write_cstr_fd
+
+    LOAD_ADDR x0, asm_mov_x10_x0
+    mov x1, #1
+    bl _write_cstr_fd
+
     LOAD_ADDR x0, asm_input_store_x10_str
     mov x1, #1
     bl _write_cstr_fd
