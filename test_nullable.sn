@@ -1,0 +1,8 @@
+fn main() {
+    int? x = none
+    if (x == none) {
+        print(1)
+    } else {
+        print(0)
+    }
+}
