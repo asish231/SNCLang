@@ -29,17 +29,25 @@ _main:
     adrp x9, store_val_1@PAGE
     ldr x10, [x9, store_val_1@PAGEOFF]
     stur x10, [x29, #-8]
-    ldur x0, [x29, #-8]
-    bl _cstring_length
-    stur x0, [x29, #-16]
     ldur x11, [x29, #-0]
-    adrp x9, store_val_3@PAGE
-    ldr x10, [x9, store_val_3@PAGEOFF]
+    adrp x9, store_val_2@PAGE
+    ldr x10, [x9, store_val_2@PAGEOFF]
+    cmp x11, x10
+    cset x11, eq
+    stur x11, [x29, #-16]
+    ldur x11, [x29, #-16]
+    cbz x11, L_snl_1
+    b L_snl_2
+L_snl_1:
+L_snl_2:
+    ldur x11, [x29, #-0]
+    adrp x9, store_val_6@PAGE
+    ldr x10, [x9, store_val_6@PAGEOFF]
     cmp x11, x10
     cset x11, ne
     stur x11, [x29, #-8]
     ldur x11, [x29, #-8]
-    cbz x11, L_snl_1
+    cbz x11, L_snl_3
     adrp x0, print_fmt_str@PAGE
     add x0, x0, print_fmt_str@PAGEOFF
     adrp x1, print_val_1@PAGE
@@ -48,8 +56,8 @@ _main:
     str x1, [sp]
     bl _printf
     add sp, sp, #16
-    b L_snl_2
-L_snl_1:
+    b L_snl_4
+L_snl_3:
     adrp x0, print_fmt_str@PAGE
     add x0, x0, print_fmt_str@PAGEOFF
     adrp x1, print_val_2@PAGE
@@ -58,7 +66,7 @@ L_snl_1:
     str x1, [sp]
     bl _printf
     add sp, sp, #16
-L_snl_2:
+L_snl_4:
     adrp x0, print_fmt_str@PAGE
     add x0, x0, print_fmt_str@PAGEOFF
     adrp x1, print_val_3@PAGE
@@ -67,20 +75,28 @@ L_snl_2:
     str x1, [sp]
     bl _printf
     add sp, sp, #16
-    adrp x9, store_val_10@PAGE
-    ldr x10, [x9, store_val_10@PAGEOFF]
+    adrp x9, store_val_13@PAGE
+    ldr x10, [x9, store_val_13@PAGEOFF]
     stur x10, [x29, #-16]
-    ldur x0, [x29, #-16]
-    bl _cstring_length
-    stur x0, [x29, #-24]
     ldur x11, [x29, #-0]
-    adrp x9, store_val_12@PAGE
-    ldr x10, [x9, store_val_12@PAGEOFF]
+    adrp x9, store_val_14@PAGE
+    ldr x10, [x9, store_val_14@PAGEOFF]
+    cmp x11, x10
+    cset x11, eq
+    stur x11, [x29, #-24]
+    ldur x11, [x29, #-24]
+    cbz x11, L_snl_5
+    b L_snl_6
+L_snl_5:
+L_snl_6:
+    ldur x11, [x29, #-0]
+    adrp x9, store_val_18@PAGE
+    ldr x10, [x9, store_val_18@PAGEOFF]
     cmp x11, x10
     cset x11, ne
     stur x11, [x29, #-16]
     ldur x11, [x29, #-16]
-    cbz x11, L_snl_3
+    cbz x11, L_snl_7
     adrp x0, print_fmt_str@PAGE
     add x0, x0, print_fmt_str@PAGEOFF
     adrp x1, print_val_4@PAGE
@@ -89,8 +105,8 @@ L_snl_2:
     str x1, [sp]
     bl _printf
     add sp, sp, #16
-    b L_snl_4
-L_snl_3:
+    b L_snl_8
+L_snl_7:
     adrp x0, print_fmt_str@PAGE
     add x0, x0, print_fmt_str@PAGEOFF
     adrp x1, print_val_5@PAGE
@@ -99,7 +115,7 @@ L_snl_3:
     str x1, [sp]
     bl _printf
     add sp, sp, #16
-L_snl_4:
+L_snl_8:
     mov w0, #0
     mov sp, x29
     ldp x29, x30, [sp], #16
@@ -143,15 +159,21 @@ print_val_5:
     .asciz "false"
 .align 3
 store_val_1:
-    .quad 4300541703
+    .quad 4332162823
 .align 3
-store_val_3:
+store_val_2:
     .quad 0
 .align 3
-store_val_10:
-    .quad 4300541822
+store_val_6:
+    .quad 0
 .align 3
-store_val_12:
+store_val_13:
+    .quad 4332162942
+.align 3
+store_val_14:
+    .quad 0
+.align 3
+store_val_18:
     .quad 0
 .align 3
 list_pool_values:

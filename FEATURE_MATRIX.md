@@ -1,10 +1,9 @@
 # SNlang Feature Matrix
 
-This file tracks spec vs implementation status.
+Tracks spec vs actual implementation status. Verified against source (`src/*.s`) not docs.
 
 - `Spec`: appears in `SNLANG_SPEC.md`
 - `Status`: DONE / IN_PROGRESS / MISSING
-- `Notes`: current state
 
 ---
 
@@ -30,8 +29,7 @@ This file tracks spec vs implementation status.
 |---|---|---|---|
 | Typed declaration `int x = 10` | Yes | DONE | All types |
 | Reassignment `x = expr` | Yes | DONE | With type checking |
-| `+=` `-=` `*=` `/=` | Yes | DONE | All compound ops |
-| `let x = 10` (legacy) | No | REMOVED | Removed — use typed declarations |
+| `+=` `-=` `*=` `/=` `%=` | Yes | DONE | All compound ops |
 
 ---
 
@@ -40,7 +38,7 @@ This file tracks spec vs implementation status.
 | Feature | Spec | Status | Notes |
 |---|---|---|---|
 | `+ - * / %` | Yes | DONE | Integer and decimal |
-| `**` (power) | Yes | DONE | Compile-time |
+| `**` (power) | Yes | DONE | |
 | `== != > < >= <=` | Yes | DONE | Runtime comparisons |
 | `and` `or` `not` | Yes | DONE | Runtime logical ops |
 | String concat `+` | Yes | DONE | `str a + str b` works |
@@ -74,7 +72,7 @@ This file tracks spec vs implementation status.
 | Nested function calls | Yes | DONE | Top-level functions |
 | Nested fn inside fn | Yes | IN_PROGRESS | Multiple calls have slot reuse bug |
 | Default parameters | Yes | DONE | `fn f(int x = 0)` |
-| Multi-return `-> (int, bool)` | Yes | IN_PROGRESS | Syntax not parsed yet |
+| Multi-return `-> (int, bool)` | Yes | IN_PROGRESS | Basic tuple syntax parsed; not fully stable |
 | `return` statement | Yes | DONE | With missing-return enforcement |
 
 ---
@@ -83,16 +81,15 @@ This file tracks spec vs implementation status.
 
 | Feature | Spec | Status | Notes |
 |---|---|---|---|
-| `list<int>` literal | Yes | DONE | `[1, 2, 3]` |
-| `list<str>` literal | Yes | DONE | `["a", "b"]` |
+| `list<int>` / `list<str>` literal | Yes | DONE | `[1, 2, 3]` |
 | `for in` list | Yes | DONE | |
-| `list[i]` read | Yes | IN_PROGRESS | Partial |
+| `list[i]` read | Yes | IN_PROGRESS | Partial — dynamic bases unstable |
 | `list[i] = val` write | Yes | DONE | Mutation works |
 | List bounds checking | Yes | MISSING | No bounds error yet |
 | `map<str, int>` literal | Yes | DONE | `{"key": val}` |
 | `map[key]` read | Yes | DONE | |
-| `map[key] = val` update | Yes | DONE | Existing keys only |
-| `map[key] = val` insert | Yes | MISSING | New key insertion not supported |
+| `map[key] = val` update existing key | Yes | DONE | |
+| `map[key] = val` insert new key | Yes | DONE | `Lstmt_index_map_insert_new` implemented |
 | `map<K, list<T>>` nested | Yes | MISSING | Nested generics fail |
 
 ---
@@ -102,17 +99,15 @@ This file tracks spec vs implementation status.
 | Feature | Spec | Status | Notes |
 |---|---|---|---|
 | String literals | Yes | DONE | |
-| `print(str)` | Yes | DONE | |
-| `printn(str)` | Yes | DONE | No newline version |
+| `print(str)` / `printn(str)` | Yes | DONE | |
 | String concat `+` | Yes | DONE | |
 | `cast(x, str)` | Yes | DONE | int, bool, dec all work |
 | String interpolation `{name}` | Yes | DONE | `"Hello {name}!"` works |
-| `.length` | Yes | MISSING | |
-| `.slice(s, e)` | Yes | MISSING | |
-| `.contains(x)` | Yes | MISSING | |
-| `.replace(a, b)` | Yes | MISSING | |
-| `.split(sep)` | Yes | MISSING | |
-| `.upper()` / `.lower()` | Yes | MISSING | |
+| `.length()` | Yes | DONE | `Lprimary_member_length` implemented |
+| `.slice(start, end)` | Yes | DONE | Op 90, `_string_slice` runtime helper |
+| `.contains(x)` | Yes | DONE | `Lprimary_member_contains` implemented |
+| `.split(sep)` | Yes | IN_PROGRESS | Op 91 wired; runtime unstable on indexed access |
+| `.replace(a, b)` / `.upper()` / `.lower()` | Yes | MISSING | |
 
 ---
 
@@ -120,8 +115,7 @@ This file tracks spec vs implementation status.
 
 | Feature | Spec | Status | Notes |
 |---|---|---|---|
-| `print(expr)` | Yes | DONE | |
-| `printn(expr)` | Yes | DONE | No newline |
+| `print(expr)` / `printn(expr)` | Yes | DONE | |
 | `input("prompt")` | Yes | DONE | String input |
 | `file_read(path)` | Yes | DONE | Returns str |
 | `file_write(path, data)` | Yes | DONE | Returns bool |
@@ -132,12 +126,13 @@ This file tracks spec vs implementation status.
 
 | Feature | Spec | Status | Notes |
 |---|---|---|---|
-| `use module.path` syntax | Yes | DONE | Single and multiple imports work |
-| Dotted module paths | Yes | DONE | `use std.math.advanced` |
-| Module loading tracking | No | DONE | Prevents duplicate loads |
-| Module file loading | Yes | MISSING | Not implemented |
-| Symbol resolution | Yes | MISSING | Imported functions not callable |
-| Standard library | Yes | MISSING | No std.io, std.math etc |
+| `use module.path` syntax | Yes | DONE | Single and multiple imports |
+| Dotted module paths | Yes | DONE | |
+| Module file loading | Yes | DONE | `_load_module` implemented |
+| Single-level symbol resolution | Yes | DONE | Imported functions callable |
+| Transitive imports | Yes | DONE | Chained module imports work |
+| Runtime multi-file linking | Yes | MISSING | All modules compiled into one output |
+| Standard library (`std.*`) | Yes | IN_PROGRESS | `std/math.sn`, `std/string.sn` exist |
 
 ---
 
@@ -145,16 +140,14 @@ This file tracks spec vs implementation status.
 
 | Feature | Spec | Status | Notes |
 |---|---|---|---|
-| `blueprint` (class) | Yes | PARTIAL | Field metadata, instances, field access, and methods work |
-| `object` creation | Yes | PARTIAL | Named field init and basic method calls work; `create()` path still limited |
-| `contract` (interface) | Yes | PARSER-ONLY | Contract signatures parse; enforcement still pending |
-| Inheritance `from` | Yes | PARTIAL | Parent names recorded; inherited field/method lookup supported |
-| `follows` (implements) | Yes | PARSER-ONLY | Header syntax accepted |
-| Access control `open/closed/guarded` | Yes | PARSER-ONLY | Modifiers parse inside blueprints |
-| `self` reference | Yes | PARTIAL | `self.field` and `self` method execution work in supported cases |
-| `ref<T>` pointer | Yes | DONE | Type and memory opcodes complete |
-| `address()` / `value()` / `set()` | Yes | DONE | Memory ops mapped to ARM64 instructions |
-| `alloc()` / `free()` | Yes | DONE | Wraps libc `_malloc`/`_free` |
+| `blueprint` fields + instances | Yes | IN_PROGRESS | Field metadata, access, basic method calls work |
+| `blueprint` method dispatch | Yes | IN_PROGRESS | `self.field` and method calls work in supported cases |
+| `contract` enforcement | Yes | MISSING | Parser-only |
+| Inheritance `from` | Yes | IN_PROGRESS | Parent names recorded; lookup partially works |
+| `follows` enforcement | Yes | MISSING | Parser-only |
+| Access control `open/closed/guarded` | Yes | MISSING | Parser-only |
+| `ref<T>` pointer | Yes | DONE | |
+| `alloc()` / `free()` / `value()` / `set()` | Yes | DONE | Wraps libc malloc/free |
 
 ---
 
@@ -162,10 +155,8 @@ This file tracks spec vs implementation status.
 
 | Feature | Spec | Status | Notes |
 |---|---|---|---|
-| `thread fn` | Yes | MISSING | |
-| `channel<T>` | Yes | MISSING | |
-| `.send()` / `.receive()` | Yes | MISSING | |
-| `await` | Yes | MISSING | |
+| `spawn` / `chan<T>` | Yes | MISSING | |
+| `async` / `await` | Yes | MISSING | |
 
 ---
 
@@ -173,9 +164,8 @@ This file tracks spec vs implementation status.
 
 | Feature | Spec | Status | Notes |
 |---|---|---|---|
-| `error` type | Yes | MISSING | |
-| `panic("msg")` | Yes | MISSING | |
-| `fn f() -> (T, error)` | Yes | MISSING | |
+| `error` type / `panic()` | Yes | MISSING | |
+| `try` / `catch` | Yes | MISSING | |
 
 ---
 
@@ -185,8 +175,8 @@ This file tracks spec vs implementation status.
 |---|---|---|
 | macOS ARM64 | DONE | Primary target |
 | `platform.inc` macro layer | DONE | Mach-O / COFF abstraction |
-| Linux ARM64 | MISSING | Syscall numbers differ |
-| Windows ARM64 | MISSING | PE/COFF, Win32 API |
+| Linux ARM64 | MISSING | |
+| Windows ARM64 | MISSING | |
 | x86_64 | MISSING | Different ISA |
 
 ---
@@ -194,9 +184,9 @@ This file tracks spec vs implementation status.
 ## Summary
 
 ```
-DONE         ~35 features
+DONE         ~40 features
 IN_PROGRESS  ~10 features
-MISSING      ~30 features
+MISSING      ~20 features
 
-Tests passing: 34/34
+Tests: 36 Makefile + runtime(10/10) + modules(10/10) + math + string — all passing
 ```
