@@ -47,7 +47,7 @@ Status board for this repository. Reflects actual source state, not aspirational
 - Typed assignment validation:                     DONE
 - Type mismatch errors:                            DONE
 - Missing return enforcement:                      DONE
-- Null model (`none`, `?`, `otherwise`):           IN_PROGRESS
+- Null model (`none`, `?`, `otherwise`):           DONE
 - `list<T>` core (literal/for-in/mutation):        DONE
 - `list<T>` indexing in expressions:               IN_PROGRESS
 - `list<T>` bounds checking:                       MISSING

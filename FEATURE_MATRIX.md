@@ -17,7 +17,7 @@ Tracks spec vs actual implementation status. Verified against source (`src/*.s`)
 | `byte` | Yes | DONE | Parser and runtime path validated |
 | `dec(X)` | Yes | DONE | Decimal arithmetic, cast, print |
 | `const int/bool/str/dec` | Yes | DONE | Immutability enforced |
-| `none` / nullable `?` | Yes | IN_PROGRESS | Basic support, edge cases remain |
+| `none` / nullable `?` | Yes | DONE | Full support |
 | `otherwise` | Yes | DONE | Null fallback operator works |
 | `any` | Yes | MISSING | Not implemented |
 
